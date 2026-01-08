@@ -1,6 +1,7 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Optional
 
 from pydantic import BaseModel
 
@@ -28,7 +29,7 @@ type CharData = dict[str, CharacterData]
 
 
 def now():
-    return datetime.now(datetime.timezone.utc)
+    return datetime.now(timezone.utc)
 
 
 class Database:
@@ -38,7 +39,7 @@ class Database:
     data: CharData
     lastSaved: dict[str, datetime]
 
-    def __init__(self, data: CharData = None):
+    def __init__(self, data: Optional[CharData] = None):
         self.data = data if data else {}
         self.lastSaved = {}
 
@@ -52,9 +53,9 @@ class Database:
     def save(self):
         for char, char_data in self.data.items():
             with open(f"{self.FILE_LOCATION}/{char}.json", "w") as file:
-                if self.lastSaved[char] + timedelta.seconds(self.PERIODIC_WRITE_INTERVAL_SECONDS) <= now():
-                    json.dump(char_data.model_dump_json(indent=2, by_alias=True), file)
+                if self.lastSaved[char] + timedelta(seconds=self.PERIODIC_WRITE_INTERVAL_SECONDS) <= now():
+                    file.write(char_data.model_dump_json(by_alias=True, indent=2))
                     self.lastSaved[char] = now()
 
-    def characters(self) -> list[str]:
-        return self.data.keys()
+    def characters(self) -> set[str]:
+        return set(self.data.keys())
