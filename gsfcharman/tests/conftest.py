@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from gsfcharman.data import CharacterData, Database, LumnisData, SafeToLogoutData
+from gsfcharman.data import CharacterData, LumnisData, SafeToLogoutData
 from gsfcharman.main import app, db
 
 
@@ -47,10 +47,8 @@ def sample_character_data(sample_lumnis_data, sample_logout_safety_data):
 
 
 @pytest.fixture
-def database_with_sample_data(temp_db_dir, sample_character_data):
-    """Database instance with sample data."""
-    db = Database()
-    db.FILE_LOCATION = temp_db_dir
+def database_with_sample_data(sample_character_data):
+    """Database instance with sample data populated in the app's db."""
     db.data = {"TestCharacter": sample_character_data}
     db.lastSaved = {name: datetime.now(timezone.utc) for name in db.data.keys()}
     return db

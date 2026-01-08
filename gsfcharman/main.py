@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
+
 from gsfcharman.data import CharacterData, Database, LumnisData, SafeToLogoutData
 
 db: Database = Database()
