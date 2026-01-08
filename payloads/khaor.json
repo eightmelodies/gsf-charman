@@ -1,0 +1,14 @@
+{
+  "name": "khaor",
+  "lumnis": {
+    "lumnis_3x": 0,
+    "lumnis_2x": 0,
+    "weekly_resource": 0,
+    "refresh": "2019-08-24T14:15:22Z",
+    "last_update": "2019-08-24T14:15:22Z"
+  },
+  "logout_safety": {
+    "safe_to_logout": true,
+    "last_update": "2019-08-24T14:15:22Z"
+  }
+}
