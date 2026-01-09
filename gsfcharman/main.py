@@ -4,7 +4,7 @@ from typing import Annotated, Optional
 from fastapi import FastAPI, HTTPException, status
 from pydantic import StringConstraints
 
-from gsfcharman.data import CharacterData, Database, LumnisData, SafeToLogoutData
+from gsfcharman.data import CharacterData, Database, LumnisData, PendingLogoutRequest, SafeToLogoutData
 
 db: Database = Database()
 
@@ -79,6 +79,18 @@ def put_character_logout_safety(
 
     db.data[character_name].logout_safety = logout_safety_data
     return logout_safety_data
+
+
+@app.put("/characters/{character_name}/pending-logout-requests")
+def put_character_pending_logout_requests(
+    character_name: Annotated[str, StringConstraints(to_lower=True)],
+    pending_logout_request: PendingLogoutRequest,
+) -> PendingLogoutRequest:
+    if character_name not in db.characters():
+        raise HTTPException(status_code=404, detail=f"Character {character_name} not found.")
+
+    db.data[character_name].pending_logout_request = pending_logout_request
+    return pending_logout_request
 
 
 @app.post("/characters/{character_name}", status_code=status.HTTP_201_CREATED)

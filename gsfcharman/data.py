@@ -19,10 +19,16 @@ class SafeToLogoutData(BaseModel):
     last_update: Optional[datetime] = None
 
 
+class PendingLogoutRequest(BaseModel):
+    logout_requests: bool
+    when_requested: datetime
+
+
 class CharacterData(BaseModel):
     name: Annotated[str, StringConstraints(to_lower=True)]
     lumnis: Optional[LumnisData] = None
     logout_safety: Optional[SafeToLogoutData] = None
+    pending_logout_request: Optional[PendingLogoutRequest] = None
 
 
 type CharData = dict[str, CharacterData]
