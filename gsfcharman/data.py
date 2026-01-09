@@ -1,28 +1,28 @@
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Annotated, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, StringConstraints
 
 
 class LumnisData(BaseModel):
-    lumnis_3x: int
-    lumnis_2x: int
-    weekly_resource: int
-    refresh: datetime
-    last_update: datetime
+    lumnis_3x: Optional[int] = None
+    lumnis_2x: Optional[int] = None
+    weekly_resource: Optional[int] = None
+    refresh: Optional[datetime] = None
+    last_update: Optional[datetime] = None
 
 
 class SafeToLogoutData(BaseModel):
-    safe_to_logout: bool
-    last_update: datetime
+    safe_to_logout: Optional[bool] = None
+    last_update: Optional[datetime] = None
 
 
 class CharacterData(BaseModel):
-    name: str
-    lumnis: LumnisData
-    logout_safety: SafeToLogoutData
+    name: Annotated[str, StringConstraints(to_lower=True)]
+    lumnis: Optional[LumnisData] = None
+    logout_safety: Optional[SafeToLogoutData] = None
 
 
 type CharData = dict[str, CharacterData]
@@ -33,7 +33,7 @@ def now():
 
 
 class Database:
-    FILE_LOCATION = "chardata/"
+    FILE_LOCATION = "/var/lib/gsfcharman/chardata/"
     PERIODIC_WRITE_INTERVAL_SECONDS = 10
 
     data: CharData

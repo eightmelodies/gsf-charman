@@ -47,6 +47,12 @@ def sample_character_data(sample_lumnis_data, sample_logout_safety_data):
 
 
 @pytest.fixture
+def sample_character_with_lumnis_only(sample_lumnis_data):
+    """Sample CharacterData with only lumnis data (no logout_safety) for testing partial updates."""
+    return CharacterData(name="LumnisOnlyChar", lumnis=sample_lumnis_data)
+
+
+@pytest.fixture
 def database_with_sample_data(sample_character_data):
     """Database instance with sample data populated in the app's db."""
     db.data = {"TestCharacter": sample_character_data}

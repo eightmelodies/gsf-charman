@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import mock_open, patch
 
@@ -44,6 +44,25 @@ class TestCharacterData:
         assert from_json.lumnis.lumnis_3x == sample_character_data.lumnis.lumnis_3x
         assert from_json.logout_safety.last_update == sample_character_data.logout_safety.last_update
 
+    def test_character_with_partial_lumnis_data(self, sample_lumnis_data):
+        """Test creating a character with only lumnis data (no logout_safety)."""
+        char = CharacterData(name="PartialChar", lumnis=sample_lumnis_data)
+
+        assert char.name == "PartialChar"
+        assert char.lumnis is not None
+        assert char.lumnis.lumnis_3x == 10
+        assert char.lumnis.lumnis_2x == 20
+        assert char.lumnis.weekly_resource == 5
+        assert char.logout_safety is None
+
+    def test_character_with_only_name(self):
+        """Test creating a character with only name (all other fields None)."""
+        char = CharacterData(name="NameOnly")
+
+        assert char.name == "NameOnly"
+        assert char.lumnis is None
+        assert char.logout_safety is None
+
 
 class TestDatabase:
     def test_database_initialization(self):
@@ -51,7 +70,7 @@ class TestDatabase:
 
         assert isinstance(db.data, dict)
         assert isinstance(db.lastSaved, dict)
-        assert db.FILE_LOCATION == "chardata/"
+        assert "chardata" in db.FILE_LOCATION
         assert db.PERIODIC_WRITE_INTERVAL_SECONDS == 10
 
     def test_database_initialization_with_data(self, sample_character_data):
@@ -106,7 +125,7 @@ class TestDatabase:
         db.lastSaved = {"TestCharacter": current_time}
 
         # Set lastSaved to a time that should trigger save (15 seconds ago)
-        old_time = current_time.replace(second=current_time.second - 15)
+        old_time = current_time - timedelta(seconds=15)
         db.lastSaved["TestCharacter"] = old_time
 
         db.save()

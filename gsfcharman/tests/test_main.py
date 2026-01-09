@@ -101,12 +101,18 @@ class TestPutCharacterEndpoint:
         assert response.status_code == 404
         assert "Character NonExistentCharacter not found" in response.json()["detail"]
 
-    def test_update_character_invalid_data(self, client, database_with_sample_data):
-        invalid_data = {"name": "TestCharacter"}
+    def test_update_character_partial_data(self, client, database_with_sample_data):
+        """Test that partial data updates are now valid (all fields optional)."""
+        partial_data = {"name": "TestCharacter"}
 
-        response = client.put("/characters/TestCharacter", json=invalid_data)
+        response = client.put("/characters/TestCharacter", json=partial_data)
 
-        assert response.status_code == 422
+        # PUT replaces the entire object, so partial data results in None fields
+        assert response.status_code == 200
+        response_data = response.json()
+        assert response_data["name"] == "TestCharacter"
+        assert response_data["lumnis"] is None
+        assert response_data["logout_safety"] is None
 
 
 class TestPutCharacterLumnisEndpoint:
