@@ -4,7 +4,7 @@ from typing import Annotated, Optional
 from fastapi import FastAPI, HTTPException, status
 from pydantic import StringConstraints
 
-from gsfcharman.data import CharacterData, Database, LumnisData, PendingLogoutRequest, SafeToLogoutData
+from gsfcharman.api.data import CharacterData, Database, LumnisData, PendingLogoutRequest, SafeToLogoutData
 
 db: Database = Database()
 

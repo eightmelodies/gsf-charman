@@ -6,8 +6,8 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from gsfcharman.data import CharacterData, LumnisData, SafeToLogoutData
-from gsfcharman.main import app, db
+from gsfcharman.api.data import CharacterData, LumnisData, SafeToLogoutData
+from gsfcharman.api.main import app, db
 
 
 @pytest.fixture
@@ -43,19 +43,19 @@ def sample_logout_safety_data():
 @pytest.fixture
 def sample_character_data(sample_lumnis_data, sample_logout_safety_data):
     """Sample CharacterData for testing."""
-    return CharacterData(name="TestCharacter", lumnis=sample_lumnis_data, logout_safety=sample_logout_safety_data)
+    return CharacterData(name="testcharacter", lumnis=sample_lumnis_data, logout_safety=sample_logout_safety_data)
 
 
 @pytest.fixture
 def sample_character_with_lumnis_only(sample_lumnis_data):
     """Sample CharacterData with only lumnis data (no logout_safety) for testing partial updates."""
-    return CharacterData(name="LumnisOnlyChar", lumnis=sample_lumnis_data)
+    return CharacterData(name="lumnisonlychar", lumnis=sample_lumnis_data)
 
 
 @pytest.fixture
 def database_with_sample_data(sample_character_data):
     """Database instance with sample data populated in the app's db."""
-    db.data = {"TestCharacter": sample_character_data}
+    db.data = {"testcharacter": sample_character_data}
     db.lastSaved = {name: datetime.now(timezone.utc) for name in db.data.keys()}
     return db
 
@@ -64,7 +64,7 @@ def database_with_sample_data(sample_character_data):
 def mock_datetime_now():
     """Mock datetime.now for consistent testing."""
     fixed_time = datetime.now(timezone.utc)
-    with patch("gsfcharman.data.datetime") as mock_datetime:
+    with patch("gsfcharman.api.data.datetime") as mock_datetime:
         mock_datetime.now.return_value = fixed_time
         mock_datetime.timezone = timezone
         yield mock_datetime
@@ -85,7 +85,7 @@ def reset_db_state():
 @pytest.fixture
 def sample_json_files(temp_db_dir, sample_character_data):
     """Create sample JSON files for testing database loading."""
-    char_name = "TestChar"
+    char_name = "testchar"
 
     # Create sample character data
     char_data = {

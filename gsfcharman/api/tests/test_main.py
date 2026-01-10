@@ -1,30 +1,30 @@
 from datetime import datetime, timezone
 
-from gsfcharman.data import CharacterData, LumnisData, SafeToLogoutData
+from gsfcharman.api.data import CharacterData, LumnisData, SafeToLogoutData
 
 
 class TestGetCharacterEndpoint:
     def test_get_existing_character(self, client, database_with_sample_data):
-        response = client.get("/characters/TestCharacter")
+        response = client.get("/characters/testcharacter")
 
         assert response.status_code == 200
         response_data = response.json()
-        assert response_data["name"] == "TestCharacter"
+        assert response_data["name"] == "testcharacter"
         assert response_data["lumnis"]["lumnis_3x"] == 10
         assert response_data["lumnis"]["lumnis_2x"] == 20
         assert response_data["lumnis"]["weekly_resource"] == 5
         assert response_data["logout_safety"]["safe_to_logout"] is True
 
     def test_get_nonexistent_character(self, client):
-        response = client.get("/characters/NonExistentCharacter")
+        response = client.get("/characters/nonexistentcharacter")
 
         assert response.status_code == 404
-        assert "Character NonExistentCharacter not found" in response.json()["detail"]
+        assert "Character nonexistentcharacter not found" in response.json()["detail"]
 
 
 class TestGetCharacterLumnisEndpoint:
     def test_get_existing_character_lumnis(self, client, database_with_sample_data):
-        response = client.get("/characters/TestCharacter/lumnis")
+        response = client.get("/characters/testcharacter/lumnis")
 
         assert response.status_code == 200
         response_data = response.json()
@@ -35,15 +35,15 @@ class TestGetCharacterLumnisEndpoint:
         assert "last_update" in response_data
 
     def test_get_lumnis_nonexistent_character(self, client):
-        response = client.get("/characters/NonExistentCharacter/lumnis")
+        response = client.get("/characters/nonexistentcharacter/lumnis")
 
         assert response.status_code == 404
-        assert "Character NonExistentCharacter not found" in response.json()["detail"]
+        assert "Character nonexistentcharacter not found" in response.json()["detail"]
 
 
 class TestGetCharacterLogoutSafetyEndpoint:
     def test_get_existing_character_logout_safety(self, client, database_with_sample_data):
-        response = client.get("/characters/TestCharacter/safe-to-logout")
+        response = client.get("/characters/testcharacter/safe-to-logout")
 
         assert response.status_code == 200
         response_data = response.json()
@@ -51,17 +51,17 @@ class TestGetCharacterLogoutSafetyEndpoint:
         assert "last_update" in response_data
 
     def test_get_logout_safety_nonexistent_character(self, client):
-        response = client.get("/characters/NonExistentCharacter/safe-to-logout")
+        response = client.get("/characters/nonexistentcharacter/safe-to-logout")
 
         assert response.status_code == 404
-        assert "Character NonExistentCharacter not found" in response.json()["detail"]
+        assert "Character nonexistentcharacter not found" in response.json()["detail"]
 
 
 class TestPutCharacterEndpoint:
     def test_update_existing_character(self, client, database_with_sample_data):
         current_time = datetime.now(timezone.utc)
         updated_data = {
-            "name": "TestCharacter",
+            "name": "testcharacter",
             "lumnis": {
                 "lumnis_3x": 20,
                 "lumnis_2x": 30,
@@ -72,11 +72,11 @@ class TestPutCharacterEndpoint:
             "logout_safety": {"safe_to_logout": False, "last_update": current_time.isoformat()},
         }
 
-        response = client.put("/characters/TestCharacter", json=updated_data)
+        response = client.put("/characters/testcharacter", json=updated_data)
 
         assert response.status_code == 200
         response_data = response.json()
-        assert response_data["name"] == "TestCharacter"
+        assert response_data["name"] == "testcharacter"
         assert response_data["lumnis"]["lumnis_3x"] == 20
         assert response_data["lumnis"]["lumnis_2x"] == 30
         assert response_data["lumnis"]["weekly_resource"] == 10
@@ -85,7 +85,7 @@ class TestPutCharacterEndpoint:
     def test_update_nonexistent_character(self, client):
         current_time = datetime.now(timezone.utc)
         updated_data = {
-            "name": "NonExistentCharacter",
+            "name": "nonexistentcharacter",
             "lumnis": {
                 "lumnis_3x": 20,
                 "lumnis_2x": 30,
@@ -96,21 +96,21 @@ class TestPutCharacterEndpoint:
             "logout_safety": {"safe_to_logout": False, "last_update": current_time.isoformat()},
         }
 
-        response = client.put("/characters/NonExistentCharacter", json=updated_data)
+        response = client.put("/characters/nonexistentcharacter", json=updated_data)
 
         assert response.status_code == 404
-        assert "Character NonExistentCharacter not found" in response.json()["detail"]
+        assert "Character nonexistentcharacter not found" in response.json()["detail"]
 
     def test_update_character_partial_data(self, client, database_with_sample_data):
         """Test that partial data updates are now valid (all fields optional)."""
-        partial_data = {"name": "TestCharacter"}
+        partial_data = {"name": "testcharacter"}
 
-        response = client.put("/characters/TestCharacter", json=partial_data)
+        response = client.put("/characters/testcharacter", json=partial_data)
 
         # PUT replaces the entire object, so partial data results in None fields
         assert response.status_code == 200
         response_data = response.json()
-        assert response_data["name"] == "TestCharacter"
+        assert response_data["name"] == "testcharacter"
         assert response_data["lumnis"] is None
         assert response_data["logout_safety"] is None
 
@@ -126,7 +126,7 @@ class TestPutCharacterLumnisEndpoint:
             "last_update": current_time.isoformat(),
         }
 
-        response = client.put("/characters/TestCharacter/lumnis", json=updated_lumnis)
+        response = client.put("/characters/testcharacter/lumnis", json=updated_lumnis)
 
         assert response.status_code == 200
         response_data = response.json()
@@ -144,10 +144,10 @@ class TestPutCharacterLumnisEndpoint:
             "last_update": current_time.isoformat(),
         }
 
-        response = client.put("/characters/NonExistentCharacter/lumnis", json=updated_lumnis)
+        response = client.put("/characters/nonexistentcharacter/lumnis", json=updated_lumnis)
 
         assert response.status_code == 404
-        assert "Character NonExistentCharacter not found" in response.json()["detail"]
+        assert "Character nonexistentcharacter not found" in response.json()["detail"]
 
 
 class TestPutCharacterLogoutSafetyEndpoint:
@@ -155,7 +155,7 @@ class TestPutCharacterLogoutSafetyEndpoint:
         current_time = datetime.now(timezone.utc)
         updated_logout_safety = {"safe_to_logout": False, "last_update": current_time.isoformat()}
 
-        response = client.put("/characters/TestCharacter/safe-to-logout", json=updated_logout_safety)
+        response = client.put("/characters/testcharacter/safe-to-logout", json=updated_logout_safety)
 
         assert response.status_code == 200
         response_data = response.json()
@@ -165,10 +165,10 @@ class TestPutCharacterLogoutSafetyEndpoint:
         current_time = datetime.now(timezone.utc)
         updated_logout_safety = {"safe_to_logout": False, "last_update": current_time.isoformat()}
 
-        response = client.put("/characters/NonExistentCharacter/safe-to-logout", json=updated_logout_safety)
+        response = client.put("/characters/nonexistentcharacter/safe-to-logout", json=updated_logout_safety)
 
         assert response.status_code == 404
-        assert "Character NonExistentCharacter not found" in response.json()["detail"]
+        assert "Character nonexistentcharacter not found" in response.json()["detail"]
 
 
 class TestErrorHandling:
@@ -178,20 +178,20 @@ class TestErrorHandling:
             lumnis_3x=10, lumnis_2x=20, weekly_resource=5, refresh=current_time, last_update=current_time
         )
         logout_safety = SafeToLogoutData(safe_to_logout=True, last_update=current_time)
-        character = CharacterData(name="Test_Character-123", lumnis=lumnis, logout_safety=logout_safety)
-        database_with_sample_data.data["Test_Character-123"] = character
+        character = CharacterData(name="test_character-123", lumnis=lumnis, logout_safety=logout_safety)
+        database_with_sample_data.data["test_character-123"] = character
 
-        response = client.get("/characters/Test_Character-123")
+        response = client.get("/characters/test_character-123")
 
         assert response.status_code == 200
-        assert response.json()["name"] == "Test_Character-123"
+        assert response.json()["name"] == "test_character-123"
 
     def test_empty_database_responses(self, client):
-        response = client.get("/characters/AnyCharacter")
+        response = client.get("/characters/anycharacter")
         assert response.status_code == 404
 
-        response = client.get("/characters/AnyCharacter/lumnis")
+        response = client.get("/characters/anycharacter/lumnis")
         assert response.status_code == 404
 
-        response = client.get("/characters/AnyCharacter/safe-to-logout")
+        response = client.get("/characters/anycharacter/safe-to-logout")
         assert response.status_code == 404

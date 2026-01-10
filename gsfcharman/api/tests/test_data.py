@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import mock_open, patch
 
-from gsfcharman.data import CharacterData, Database, LumnisData, SafeToLogoutData
+from gsfcharman.api.data import CharacterData, Database, LumnisData, SafeToLogoutData
 
 
 class TestLumnisData:
@@ -33,7 +33,7 @@ class TestSafeToLogoutData:
 
 class TestCharacterData:
     def test_character_data_creation(self, sample_character_data):
-        assert sample_character_data.name == "TestCharacter"
+        assert sample_character_data.name == "testcharacter"
         assert sample_character_data.lumnis.lumnis_3x == 10
         assert sample_character_data.logout_safety.safe_to_logout is True
 
@@ -46,9 +46,9 @@ class TestCharacterData:
 
     def test_character_with_partial_lumnis_data(self, sample_lumnis_data):
         """Test creating a character with only lumnis data (no logout_safety)."""
-        char = CharacterData(name="PartialChar", lumnis=sample_lumnis_data)
+        char = CharacterData(name="partialchar", lumnis=sample_lumnis_data)
 
-        assert char.name == "PartialChar"
+        assert char.name == "partialchar"
         assert char.lumnis is not None
         assert char.lumnis.lumnis_3x == 10
         assert char.lumnis.lumnis_2x == 20
@@ -57,9 +57,9 @@ class TestCharacterData:
 
     def test_character_with_only_name(self):
         """Test creating a character with only name (all other fields None)."""
-        char = CharacterData(name="NameOnly")
+        char = CharacterData(name="nameonly")
 
-        assert char.name == "NameOnly"
+        assert char.name == "nameonly"
         assert char.lumnis is None
         assert char.logout_safety is None
 
@@ -74,24 +74,24 @@ class TestDatabase:
         assert db.PERIODIC_WRITE_INTERVAL_SECONDS == 10
 
     def test_database_initialization_with_data(self, sample_character_data):
-        test_data = {"TestCharacter": sample_character_data}
+        test_data = {"testcharacter": sample_character_data}
         db = Database(data=test_data)
 
-        assert "TestCharacter" in db.data
-        assert db.data["TestCharacter"].name == "TestCharacter"
+        assert "testcharacter" in db.data
+        assert db.data["testcharacter"].name == "testcharacter"
 
     def test_characters(self, sample_character_data):
         character1 = sample_character_data
         character2 = sample_character_data.model_copy()
-        character2.name = "Character2"
+        character2.name = "character2"
 
-        test_data = {"Character1": character1, "Character2": character2}
+        test_data = {"character1": character1, "character2": character2}
         db = Database(data=test_data)
 
         characters = db.characters()
         assert isinstance(characters, set)
-        assert "Character1" in characters
-        assert "Character2" in characters
+        assert "character1" in characters
+        assert "character2" in characters
         assert len(characters) == 2
 
     def test_load_with_empty_directory(self, temp_db_dir):
@@ -121,24 +121,24 @@ class TestDatabase:
 
         db = Database()
         db.FILE_LOCATION = temp_db_dir
-        db.data = {"TestCharacter": sample_character_data}
-        db.lastSaved = {"TestCharacter": current_time}
+        db.data = {"testcharacter": sample_character_data}
+        db.lastSaved = {"testcharacter": current_time}
 
         # Set lastSaved to a time that should trigger save (15 seconds ago)
         old_time = current_time - timedelta(seconds=15)
-        db.lastSaved["TestCharacter"] = old_time
+        db.lastSaved["testcharacter"] = old_time
 
         db.save()
 
         # Check if file was created
-        saved_file = Path(temp_db_dir) / "TestCharacter.json"
+        saved_file = Path(temp_db_dir) / "testcharacter.json"
         assert saved_file.exists()
 
         # Verify content
         with open(saved_file, "r") as f:
             saved_data = json.load(f)
 
-        assert saved_data["name"] == "TestCharacter"
+        assert saved_data["name"] == "testcharacter"
         assert saved_data["lumnis"]["lumnis_3x"] == 10
         assert saved_data["logout_safety"]["safe_to_logout"] is True
 
@@ -148,10 +148,10 @@ class TestDatabase:
 
         db = Database()
         db.FILE_LOCATION = temp_db_dir
-        db.data = {"TestCharacter": sample_character_data}
+        db.data = {"testcharacter": sample_character_data}
 
         # Set lastSaved to current time (should skip save)
-        db.lastSaved = {"TestCharacter": current_time}
+        db.lastSaved = {"testcharacter": current_time}
 
         # Mock file operations to check if save was called
         with patch("builtins.open", mock_open()) as mock_file:
