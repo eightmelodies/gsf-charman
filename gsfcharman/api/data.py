@@ -20,7 +20,7 @@ class SafeToLogoutData(BaseModel):
 
 
 class PendingLogoutRequest(BaseModel):
-    logout_requests: bool
+    logout_requested: bool
     when_requested: datetime
 
 

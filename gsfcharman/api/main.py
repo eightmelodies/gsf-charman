@@ -47,6 +47,15 @@ def get_character_logout_safety(
     return db.data[character_name].logout_safety
 
 
+@app.get("/characters/{character_name}/pending-logout-request")
+def get_character_pending_logout_request(
+    character_name: Annotated[str, StringConstraints(to_lower=True)],
+) -> Optional[PendingLogoutRequest]:
+    if character_name not in db.characters():
+        raise HTTPException(status_code=404, detail=f"Character {character_name} not found.")
+    return db.data[character_name].pending_logout_request
+
+
 @app.put("/characters/{character_name}")
 def put_character(
     character_name: Annotated[str, StringConstraints(to_lower=True)], character_data: CharacterData
@@ -81,8 +90,8 @@ def put_character_logout_safety(
     return logout_safety_data
 
 
-@app.put("/characters/{character_name}/pending-logout-requests")
-def put_character_pending_logout_requests(
+@app.put("/characters/{character_name}/pending-logout-request")
+def put_character_pending_logout_request(
     character_name: Annotated[str, StringConstraints(to_lower=True)],
     pending_logout_request: PendingLogoutRequest,
 ) -> PendingLogoutRequest:

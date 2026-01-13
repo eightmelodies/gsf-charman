@@ -1,196 +1,68 @@
-=begin
-  charman.lic - Send Lumnis data to the gsf-charman API
-  
-  This script parses in-game Lumnis data and sends it to the configured API.
-  
-  author: yourmom
-  tags: lumnis, api, character
-  version: 1.0.0
+module Lumnis
+  MAX_LUMNIS_VALUE = 7300
+  MAX_RESOURCE_VALUE = 50000
 
-  Usage:
-    ;charman                    - Run once (fetch and send all data)
-    ;charman run                - Run once (fetch and send all data)
-    ;charman run --daemon       - Run continuously in background
-    ;charman set --url=URL      - Set API URL
-    ;charman set --lumnis-interval=N   - Set Lumnis update interval (in seconds, default: 300)
-    ;charman set --logout-interval=N   - Set logout safety update interval (in seconds, default: 10)
-    ;charman set                - Show current configuration
-    ;charman --help             - Show this help
+  LUMNIS_2X_PATTERN = /(?:You have|followed by) (?<l2>\d{1,4}) points? of doubled/
+  LUMNIS_3X_PATTERN = /^You have (?<l3>\d{1,4}) points? of tripled/
+  LUMNIS_REFRESH_PATTERN = /It is scheduled to refresh in (?<days>\d) days?, (?<hours>\d{1,2}) hours? and (?<minutes>\d{1,2}) minutes?/
 
-  Configuration:
-    Set UserVars.charman[:api_url] to your API endpoint (default: http://localhost:8000)
-    Set UserVars.charman[:lumnis_interval] to Lumnis update interval in seconds (default: 300)
-    Set UserVars.charman[:logout_interval] to logout safety update interval in seconds (default: 10)
-    Set UserVars.charman[:safe_rooms] to array of safe room IDs (default: [66666])
-    Set UserVars.charman[:unsafe_scripts] to array of script names (default: ["bigshot.lic", "autostart.lic"])
-=end
+  SECONDS_IN_MINUTE = 60
+  SECONDS_IN_HOUR = 60 * SECONDS_IN_MINUTE
+  SECONDS_IN_DAY = 24 * SECONDS_IN_HOUR
 
-require 'net/http'
-require 'uri'
-require 'json'
-require 'time'
+  @lumnis_2x = nil
+  @lumnis_3x = nil
+  @resource = nil
+  @refresh = nil
 
-# Configuration
-module Charman
-  @@last_lumnis_fetch = 0
-  @@last_logout_fetch = 0
-  
+  def self.check
+    result = Lich::Util.issue_command("lumnis info", /^(?:Your Gift of Lumnis|You have \d{1,4} points?)/, /<prompt/, silent: true, quiet: true).join
+
+    self.update_lumnis_2x(result)
+    self.update_lumnis_3x(result)
+    self.update_refresh(result)
+  end
+
+  def self.update_lumnis_2x(result)
+    @lumnis_2x = result =~ LUMNIS_2X_PATTERN ? $~[:l2].to_i : nil
+  end
+
+  def self.lumnis_2x
+    @lumnis_2x
+  end
+
+  def self.update_lumnis_3x(result)
+    @lumnis_3x = result =~ LUMNIS_3X_PATTERN ? $~[:l3].to_i : nil
+  end
+
+  def self.lumnis_3x
+    @lumnis_3x
+  end
+
+  def self.resource
+    @resource = Resources.check(quiet=true).first
+    @resource
+  end
+
+  def self.update_refresh(result)
+    unless result =~ LUMNIS_REFRESH_PATTERN
+      @refresh = nil
+      return
+    end
+
+    seconds_to_add = ($~[:days].to_i * SECONDS_IN_DAY) + ($~[:hours].to_i * SECONDS_IN_HOUR) + ($~[:minutes].to_i * SECONDS_IN_MINUTE)
+    now = Time.now.getutc
+    @refresh = now + seconds_to_add
+  end
+
+  def self.refresh
+    @refresh
+  end
+end
+
+module CharmanAPI
   def self.api_url
     UserVars.charman[:api_url] || 'http://localhost:8000'
-  end
-  
-  def self.lumnis_interval
-    UserVars.charman[:lumnis_interval] || 300
-  end
-  
-  def self.logout_interval
-    UserVars.charman[:logout_interval] || 10
-  end
-  
-  def self.message(text)
-    if $fake_stormfront
-      _respond("\034GSL\r\n #{text}\034GSM\r\n ")
-    else
-      _respond("<pushBold/>#{text}<popBold/>")
-    end
-  end
-
-  def self.get_lumnis_data
-    lumnis_info = {
-      lumnis_3x: 0,
-      lumnis_2x: 0,
-      weekly_resource: 0,
-      refresh: nil
-    }
-    
-    lumnis_result = nil
-    lumnis_done = false
-    last_schedule_month = nil
-    last_schedule_day = nil
-    last_schedule_year = nil
-
-    # Capture lumnis info output
-    lumnis_get = proc do
-      filter = false
-      action = proc do |server_string|
-        if server_string =~ /It is scheduled to refresh|restart as soon as you gain experience|Because your account is free,/
-          filter = true
-          lumnis_result = server_string
-          next(nil)
-        elsif server_string.strip.length == 0 && filter
-          next(nil)
-        elsif server_string =~ /You last used a Lumnis scheduling option|You have not selected a Gift of Lumnis schedule\./ && filter
-          if server_string =~ /You last used a Lumnis scheduling option on (?:Sun|Mon|Tue|Wed|Thu|Fri|Sat) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d+) ........ .. (\d+)\.(?:\s\sYou must wait six months from then to use another Lumnis scheduling option\.)?/
-            last_schedule_month = $1
-            last_schedule_day = $2
-            last_schedule_year = $3
-            if server_string !~ /You must wait six months from then to use another Lumnis scheduling option./
-              last_schedule_month = "Ready"
-              last_schedule_year = "Ready"
-              last_schedule_day = "Ready"
-            end
-          elsif server_string =~ /You have not selected/
-            last_schedule_month = "Ready"
-            last_schedule_day = "Ready"
-            last_schedule_year = "Ready"
-          end
-          next(nil)
-        elsif server_string =~ /Your Gift of Lumnis is scheduled|You have [,\d]+ available uses? of |You have no available uses of / && filter
-          next(nil)
-        elsif server_string =~ /^\<prompt time\=/ && filter
-          DownstreamHook.remove("charman_lumnis_scoop")
-          lumnis_done = true
-          next(nil)
-        else
-          next(server_string)
-        end
-      end
-
-      DownstreamHook.add("charman_lumnis_scoop", action)
-      silence_me
-      put "lumnis info"
-      silence_me
-    end
-
-    lumnis_get.call
-    wait_until { lumnis_done }
-
-    # Parse experience points from lumnis result
-    if lumnis_result
-      if lumnis_result =~ /You have ([,\d]+) points of tripled experience followed by ([,\d]+) points of doubled experience/
-        lumnis_info[:lumnis_3x] = $1.delete(",").to_i
-        lumnis_info[:lumnis_2x] = $2.delete(",").to_i
-      elsif lumnis_result =~ /You have ([,\d]+) points of doubled experience/
-        lumnis_info[:lumnis_2x] = $1.delete(",").to_i
-        lumnis_info[:lumnis_3x] = 0
-      elsif lumnis_result =~ /Your Gift of Lumnis will restart as soon as you gain experience/
-        lumnis_info[:lumnis_3x] = 7300
-        lumnis_info[:lumnis_2x] = 7300
-      elsif lumnis_result =~ /Your Gift of Lumnis has expired for this week\./
-        lumnis_info[:lumnis_3x] = 0
-        lumnis_info[:lumnis_2x] = 0
-      end
-    end
-
-    # Calculate refresh datetime
-    if last_schedule_month == "Ready"
-      # Calculate 7 days from now as the refresh time
-      lumnis_info[:refresh] = (Time.now + 7 * 24 * 60 * 60).utc.iso8601
-    elsif last_schedule_month
-      # Convert month name to number
-      month_map = {
-        "Jan" => 0, "Feb" => 1, "Mar" => 2, "Apr" => 3, "May" => 4, "Jun" => 5,
-        "Jul" => 6, "Aug" => 7, "Sep" => 8, "Oct" => 9, "Nov" => 10, "Dec" => 11
-      }
-      if month_map.key?(last_schedule_month)
-        month_num = month_map[last_schedule_month]
-        year = last_schedule_year.to_i
-        # Lumnis refreshes in 7 days
-        refresh_time = Time.new(year, month_num + 1, last_schedule_day.to_i) + (7 * 24 * 60 * 60)
-        lumnis_info[:refresh] = refresh_time.utc.iso8601
-      end
-    else
-      # Default: 7 days from now
-      lumnis_info[:refresh] = (Time.now + 7 * 24 * 60 * 60).utc.iso8601
-    end
-
-    # Get weekly resource
-    resource_done = false
-    cur_week_res = 0
-
-    resource_get = proc do
-      filter = false
-      action = proc do |server_string|
-        if server_string =~ /(?:\<pushBold\/\>)?[,\d]+(?:\<popBold\/\>)?\/(?:\<pushBold\/\>)?[,\d]+(?:\<popBold\/\>)?\s+Mana\:/
-          filter = true
-          next(nil)
-        elsif server_string.strip.length == 0 && filter
-          next(nil)
-        elsif server_string =~ /^(?:\<popBold\/\>)?Voln Favor\:/ && filter
-          next(nil)
-        elsif server_string =~ /^(?:\<popBold\/\>)?(?:Guile|Luck Inspiration|Essence|Necrotic Energy|Motes of Tranquility|Grit|Devotion|Nature's Grace|Vitality):\s+([,\d]+)\/50,000 \(Weekly\)\s+([,\d]+)\/200,000\s+\(Total\)/ && filter
-          cur_week_res = $1.delete(",").to_i
-          next(nil)
-        elsif server_string =~ /^\<prompt time\=/ && filter
-          DownstreamHook.remove("charman_resource_scoop")
-          resource_done = true
-          next(nil)
-        else
-          next(server_string)
-        end
-      end
-
-      DownstreamHook.add("charman_resource_scoop", action)
-      silence_me
-      put "resource"
-      silence_me
-    end
-
-    resource_get.call
-    wait_until { resource_done }
-    lumnis_info[:weekly_resource] = cur_week_res
-
-    lumnis_info
   end
 
   def self.get_http
@@ -203,45 +75,27 @@ module Charman
   end
 
   def self.create_character(character_name)
-    http = get_http
-    char_uri = URI.parse("#{api_url}/characters/#{URI.encode_www_form_component(character_name)}")
+    http = self.get_http
+    char_uri = URI.parse("#{self.api_url}/characters/#{URI.encode_www_form_component(character_name)}")
     request = Net::HTTP::Post.new(char_uri.path)
     request['Content-Type'] = 'application/json'
     request.body = { name: character_name }.to_json
-    response = http.request(request)
-    response.value  # Raises if not 201
+    http.request(request)
   end
 
-  def self.update_lumnis(character_name)
-    return if Time.now.to_i - @@last_lumnis_fetch < lumnis_interval
-    
-    lumnis_data = get_lumnis_data
-    
-    message("Lumnis 3x: #{lumnis_data[:lumnis_3x]}")
-    message("Lumnis 2x: #{lumnis_data[:lumnis_2x]}")
-    message("Weekly Resource: #{lumnis_data[:weekly_resource]}")
-    message("Refresh: #{lumnis_data[:refresh]}")
-    
-    http = get_http
-    lumnis_uri = URI.parse("#{api_url}/characters/#{URI.encode_www_form_component(character_name)}/lumnis")
-    
-    payload = {
-      name: character_name,
-      lumnis_3x: lumnis_data[:lumnis_3x],
-      lumnis_2x: lumnis_data[:lumnis_2x],
-      weekly_resource: lumnis_data[:weekly_resource],
-      refresh: lumnis_data[:refresh],
-      last_update: Time.now.utc.iso8601
-    }
+  def self.get_character(character_name)
+    http = self.get_http
+    char_uri = URI.parse("#{self.api_url}/characters/#{URI.encode_www_form_component(character_name)}")
+    request = Net::HTTP::Get.new(char_uri.path)
+    request['Content-Type'] = 'application/json'
+    request.body = { name: character_name }.to_json
+    http.request(request)
+  end
 
+  def self.create_character_if_not_exist(character_name)
     retries = 0
-    
     begin
-      request = Net::HTTP::Put.new(lumnis_uri.path)
-      request['Content-Type'] = 'application/json'
-      request.body = payload.to_json
-      response = http.request(request)
-      response.value  # Raises HTTPClientException for 4xx/5xx
+      self.get_character(character_name).value
     rescue Net::HTTPClientException => e
       if e.message.include?('404') && retries < 1
         create_character(character_name)
@@ -251,69 +105,49 @@ module Charman
         raise
       end
     end
-    
-    message("Updated Lumnis data for #{character_name}")
-    @@last_lumnis_fetch = Time.now.to_i
   end
 
-  def self.update_logout_safety(character_name)
-    return if Time.now.to_i - @@last_logout_fetch < logout_interval
-    
-    current_room = Room.current.id
-    running_script_names = Script.running.map { |s| s.name.gsub(/\.lic$/, '') }
-    
-    safe_rooms = UserVars.charman[:safe_rooms] || [66666]
-    unsafe_scripts = UserVars.charman[:unsafe_scripts] || ["bigshot", "autostart"]
-    
-    in_safe_room = safe_rooms.include?(current_room)
-    no_unsafe_scripts_running = (running_script_names & unsafe_scripts).empty?
-    safe_to_logout = in_safe_room && no_unsafe_scripts_running
-    
-    message("Current room #{current_room} vs safe rooms #{safe_rooms}: in_safe_room?: #{in_safe_room}")
-    message("Running scripts #{running_script_names} vs unsafe scripts #{unsafe_scripts}: no unsafe scripts running?: #{no_unsafe_scripts_running}")
-    message("Safe to logout: #{safe_to_logout}")
-    
-    http = get_http
-    uri = URI.parse("#{api_url}/characters/#{URI.encode_www_form_component(character_name)}/safe-to-logout")
-    
+  def self.update_lumnis(character_name, lumnis_2x, lumnis_3x, resource, refresh)
+    self.create_character_if_not_exist(character_name)
+
+    http = self.get_http
+    lumnis_uri = URI.parse("#{self.api_url}/characters/#{URI.encode_www_form_component(character_name)}/lumnis")
+    # TODO: normalize JSON from snake_case to camel
     payload = {
       name: character_name,
-      safe_to_logout: safe_to_logout,
+      lumnis_3x: lumnis_3x,
+      lumnis_2x: lumnis_2x,
+      weekly_resource: resource,
+      refresh: refresh.utc.iso8601,
       last_update: Time.now.utc.iso8601
     }
-
-    retries = 0
-    
-    begin
-      request = Net::HTTP::Put.new(uri.path)
-      request['Content-Type'] = 'application/json'
-      request.body = payload.to_json
-      response = http.request(request)
-      response.value  # Raises HTTPClientException for 4xx/5xx
-    rescue Net::HTTPClientException => e
-      if e.message.include?('404') && retries < 1
-        create_character(character_name)
-        retries += 1
-        retry
-      else
-        raise
-      end
-    end
-    
-    @@last_logout_fetch = Time.now.to_i
+    request = Net::HTTP::Put.new(lumnis_uri.path)
+    request['Content-Type'] = 'application/json'
+    request.body = payload.to_json
+    http.request(request)
   end
 
+  def self.get_pending_logout_request(character_name)
+    http = self.get_http
+    char_uri = URI.parse("#{self.api_url}/characters/#{URI.encode_www_form_component(character_name)}/pending-logout-request")
+    request = Net::HTTP::Get.new(char_uri.path)
+    request['Content-Type'] = 'application/json'
+    request.body = { name: character_name }.to_json
+    http.request(request)
+  end
+end
+
+module Charman
   def self.run
     character_name = XMLData.name
     
-    message("Fetching data for #{character_name}...")
-    
-    update_lumnis(character_name)
-    update_logout_safety(character_name)
-    
-    message("Done!")
-  rescue => e
-    message("Error: #{e.message}")
+    Lich::Messaging.msg("info", "Fetching data for #{character_name}...")
+    Lumnis.check
+
+    Lich::Messaging.msg("info", "Updating API...")
+    CharmanAPI.update_lumnis(character_name, Lumnis.lumnis_2x, Lumnis.lumnis_3x, Lumnis.resource, Lumnis.refresh)
+
+    Lich::Messaging.msg("info", "Done!")
   end
 end
 
@@ -323,21 +157,17 @@ if Script.current.vars[0] =~ /^--?help$|\?$/
   _respond "<pushBold/>charman.lic - Send Lumnis data to API<popBold/>"
   _respond ""
   _respond "Usage:"
-  _respond "  ;charman                    - Run once (fetch and send all data)"
-  _respond "  ;charman run                - Run once (fetch and send all data)"
-  _respond "  ;charman run --daemon       - Run continuously in background"
-  _respond "  ;charman set --url=URL      - Set API URL"
-  _respond "  ;charman set --lumnis-interval=N   - Set Lumnis update interval (in seconds, default: 300)"
-  _respond "  ;charman set --logout-interval=N   - Set logout safety update interval (in seconds, default: 10)"
-  _respond "  ;charman set                - Show current configuration"
-  _respond "  ;charman --help             - Show this help"
+  _respond "  ;charman                            - Run once (fetch and send all data)"
+  _respond "  ;charman run                        - Run once (fetch and send all data)"
+  _respond "  ;charman run --daemon               - Run continuously in background"
+  _respond "  ;charman set --url=URL              - Set API URL"
+  _respond "  ;charman set --lumnis-interval=N    - Set Lumnis update interval (in seconds, default: 60)"
+  _respond "  ;charman set                        - Show current configuration"
+  _respond "  ;charman --help                     - Show this help"
   _respond ""
   _respond "Configuration:"
   _respond "  Set UserVars.charman[:api_url] to your API endpoint (default: http://localhost:8000)"
-  _respond "  Set UserVars.charman[:lumnis_interval] to Lumnis update interval in seconds (default: 300)"
-  _respond "  Set UserVars.charman[:logout_interval] to logout safety update interval in seconds (default: 10)"
-  _respond "  Set UserVars.charman[:safe_rooms] to array of safe room IDs (default: [66666])"
-  _respond "  Set UserVars.charman[:unsafe_scripts] to array of script names (default: [\"bigshot.lic\", \"autostart.lic\"])"
+  _respond "  Set UserVars.charman[:lumnis_interval] to Lumnis update interval in seconds (default: 60)"
   _respond ""
   exit
 end
@@ -386,10 +216,6 @@ if command == 'set'
       UserVars.charman[:lumnis_interval] = $1.to_i
       Charman.message("Lumnis interval set to: #{$1} seconds")
       lumnis_interval_set = true
-    elsif var =~ /--?logout-interval=(\d+)$/
-      UserVars.charman[:logout_interval] = $1.to_i
-      Charman.message("Logout interval set to: #{$1} seconds")
-      logout_interval_set = true
     end
   end
   
@@ -398,10 +224,7 @@ if command == 'set'
     _respond ""
     _respond "<pushBold/>Current Configuration:<popBold/>"
     _respond "  API URL: #{UserVars.charman[:api_url] || 'http://localhost:8000'}"
-    _respond "  Lumnis Interval: #{UserVars.charman[:lumnis_interval] || 300} seconds"
-    _respond "  Logout Interval: #{UserVars.charman[:logout_interval] || 10} seconds"
-    _respond "  Safe Rooms: #{UserVars.charman[:safe_rooms] || [66666]}"
-    _respond "  Unsafe Scripts: #{UserVars.charman[:unsafe_scripts] || ["bigshot.lic", "autostart.lic"]}"
+    _respond "  Lumnis Interval: #{UserVars.charman[:lumnis_interval] || 60} seconds"
     _respond ""
   end
   
@@ -418,26 +241,23 @@ for var in args
     daemon_mode = true
   elsif var =~ /--?lumnis-interval=(\d+)$/
     override_lumnis_interval = $1.to_i
-  elsif var =~ /--?logout-interval=(\d+)$/
-    override_logout_interval = $1.to_i
   end
 end
 
 # Use override intervals, stored intervals, or defaults
-lumnis_interval = override_lumnis_interval || UserVars.charman[:lumnis_interval] || 300
-logout_interval = override_logout_interval || UserVars.charman[:logout_interval] || 10
+lumnis_interval = UserVars.charman[:lumnis_interval] || 60
 
 if daemon_mode
-  Charman.message("Starting daemon mode. Lumnis: #{lumnis_interval}s, Logout: #{logout_interval}s. Use ;k charman to stop.")
+  Lich::Messaging.msg("info", "Starting daemon mode. Use ;k charman to stop.")
   
   loop do
     begin
       Charman.run
     rescue => e
-      Charman.message("Error: #{e.message}")
+      Lich::Messaging.msg("info", "Error: #{e.message}")
     end
     
-    sleep [lumnis_interval, logout_interval].min
+    sleep lumnis_interval
   end
 else
   Charman.run

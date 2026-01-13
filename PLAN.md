@@ -56,6 +56,14 @@ The TLDR for this strategy is we rank characters based on the following:
 - Characters that have completed their weekly resource (capped 50k) are excluded from the results
 - Characters without a Lumnis refresh date set are excluded from the results
 
+##### Daily login strategy
+
+TODO: makes sure everyone logs in for the day
+
+##### Favored character strategy
+
+TODO: fallback strategy; choose a favored character that gets the remainder of logon time
+
 ##### Edge cases
 
 When characters are logged into the game they will likely (if we've automated that side correctly) start working through experience and thus their Lumnis and other attributes will change. This introduces several caveats we should account for.
@@ -71,6 +79,12 @@ In other strategies, we should ensure that we're ranking characters on values th
 ###### Strategy competition
 
 For the layered strategy approach, it's important that strategies are capable of eventually yielding an empty list. If not, the remaining strategies will never be evaluated. The exception to this is the last strategy in the list, which can and should yield a result or the daemon will stop processing logon requests.
+
+#### Login orchestrator
+
+TODO: given character data and the list of strategies, 1) determine current character to login and 2) handle logging off/on
+
+Caveat: should be able to handle multiple orchestrators for multiple accounts
 
 ### Lich script
 
