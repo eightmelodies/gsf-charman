@@ -6,8 +6,6 @@ import time
 import urllib.error
 import urllib.request
 
-import systemd.daemon
-
 from gsfcharman.daemon.config import API_URL, LICH_BIN, RUBY_BIN
 
 
@@ -91,20 +89,13 @@ class CharmanDaemon:
         except urllib.error.URLError:
             return False
 
-    def notify_ready(self):
-        """Notify systemd that daemon is ready."""
-        systemd.daemon.notify("READY=1")
-
     def run(self):
         """Main daemon loop."""
-        self.notify_ready()
-        systemd.daemon.notify("STATUS=Running")
 
         while True:
             # TODO: poll the API server, get list of characters that should be logged in from our strategy, and process
 
             time.sleep(1)
-            systemd.daemon.notify("STATUS=Monitoring characters")
 
 
 def main():

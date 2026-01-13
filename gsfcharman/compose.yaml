@@ -1,0 +1,33 @@
+services:
+  api:
+    build:
+      context: ./
+      dockerfile: api/Dockerfile
+    ports:
+      - "8000:8000"
+    #restart: unless-stopped
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./
+          target: /opt/gsfcharman
+          initial_sync: true
+        - action: rebuild
+          path: requirements.txt
+        - action: rebuild
+          path: ./api/Dockerfile
+  daemon:
+    build:
+      context: ./
+      dockerfile: daemon/Dockerfile
+    #restart: unless-stopped
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./
+          target: /opt/gsfcharman
+          initial_sync: true
+        - action: rebuild
+          path: requirements.txt
+        - action: rebuild
+          path: ./daemon/Dockerfile

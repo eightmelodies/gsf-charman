@@ -8,7 +8,7 @@ Charman (short for Character Manager) is a suite of tools that run and manage [G
 
 ### Daemon
 
-Uses [python-systemd](https://github.com/systemd/python-systemd) to run as a user daemon. Launches the Lich proxies based on configuration and talks to the API server to request logouts when needed.
+Launches the Lich proxies based on configuration and talks to the API server to request logouts when needed.
 
 #### Login strategies
 

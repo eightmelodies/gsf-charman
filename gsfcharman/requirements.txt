@@ -2,4 +2,3 @@ fastapi
 pydantic
 pytest
 httpx
-systemd-python

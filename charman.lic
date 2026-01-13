@@ -210,11 +210,11 @@ if command == 'set'
   for var in args
     if var =~ /--?url=(.+?)$/
       UserVars.charman[:api_url] = $1
-      Charman.message("API URL set to: #{$1}")
+       Lich::Messaging.msg("info", "API URL set to: #{$1}")
       url_set = true
     elsif var =~ /--?lumnis-interval=(\d+)$/
       UserVars.charman[:lumnis_interval] = $1.to_i
-      Charman.message("Lumnis interval set to: #{$1} seconds")
+       Lich::Messaging.msg("info", "Lumnis interval set to: #{$1} seconds")
       lumnis_interval_set = true
     end
   end
