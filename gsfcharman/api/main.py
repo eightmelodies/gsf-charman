@@ -4,7 +4,14 @@ from typing import Annotated, Optional
 from fastapi import FastAPI, HTTPException, status
 from pydantic import StringConstraints
 
-from gsfcharman.api.data import CharacterData, Database, LumnisData, PendingLogoutRequest, SafeToLogoutData
+from gsfcharman.api.data import (
+    CharacterData,
+    Database,
+    HeartbeatData,
+    LumnisData,
+    PendingLogoutRequest,
+    SafeToLogoutData,
+)
 
 db: Database = Database()
 
@@ -56,6 +63,15 @@ def get_character_pending_logout_request(
     return db.data[character_name].pending_logout_request
 
 
+@app.get("/characters/{character_name}/heartbeat")
+def get_character_heartbeat(
+    character_name: Annotated[str, StringConstraints(to_lower=True)],
+) -> Optional[HeartbeatData]:
+    if character_name not in db.characters():
+        raise HTTPException(status_code=404, detail=f"Character {character_name} not found.")
+    return db.data[character_name].heartbeat
+
+
 @app.put("/characters/{character_name}")
 def put_character(
     character_name: Annotated[str, StringConstraints(to_lower=True)], character_data: CharacterData
@@ -100,6 +116,18 @@ def put_character_pending_logout_request(
 
     db.data[character_name].pending_logout_request = pending_logout_request
     return pending_logout_request
+
+
+@app.put("/characters/{character_name}/heartbeat")
+def put_character_heartbeat(
+    character_name: Annotated[str, StringConstraints(to_lower=True)],
+    heartbeat: HeartbeatData,
+) -> HeartbeatData:
+    if character_name not in db.characters():
+        raise HTTPException(status_code=404, detail=f"Character {character_name} not found.")
+
+    db.data[character_name].heartbeat = heartbeat
+    return heartbeat
 
 
 @app.post("/characters/{character_name}", status_code=status.HTTP_201_CREATED)

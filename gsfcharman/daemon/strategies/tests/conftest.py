@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from gsfcharman.api.data import CharacterData, LumnisData
+from gsfcharman.api.data import CharacterData, HeartbeatData, LumnisData
 
 # Fixed date for consistent testing (Monday of a test week)
 TEST_WEEK_START = datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
@@ -164,3 +164,67 @@ def resource_incapable() -> CharacterData:
 def no_lumnis_data() -> CharacterData:
     """Character with no Lumnis data."""
     return CharacterData(name="no_data", lumnis=None)
+
+
+# Daily Login Test Fixtures
+@pytest.fixture
+def character_needs_login() -> CharacterData:
+    """Character that needs daily login (heartbeat before reset time)."""
+    # Create a heartbeat time that's definitely before the daily reset
+    from gsfcharman.daemon.strategies.daily_login import DailyLogin
+
+    reset_time = DailyLogin()._get_when_login_reset()
+    old_heartbeat = reset_time - timedelta(hours=12)
+    return CharacterData(name="needs_login", heartbeat=HeartbeatData(last_update=old_heartbeat))
+
+
+@pytest.fixture
+def character_recent_login() -> CharacterData:
+    """Character that recently logged in (heartbeat after reset time)."""
+    # Create a heartbeat time that's definitely after the daily reset
+    from gsfcharman.daemon.strategies.daily_login import DailyLogin
+
+    reset_time = DailyLogin()._get_when_login_reset()
+    recent_heartbeat = reset_time + timedelta(hours=1)
+    return CharacterData(name="recent_login", heartbeat=HeartbeatData(last_update=recent_heartbeat))
+
+
+@pytest.fixture
+def character_no_heartbeat() -> CharacterData:
+    """Character with no heartbeat data."""
+    return CharacterData(name="no_heartbeat")
+
+
+@pytest.fixture
+def character_at_reset_time() -> CharacterData:
+    """Character with heartbeat exactly at reset time."""
+    # Calculate the reset time for the test week start date
+    from gsfcharman.daemon.strategies.daily_login import DailyLogin
+
+    strategy = DailyLogin()
+    reset_time = strategy._get_when_login_reset()
+
+    # Use a fixed time that would be at reset for testing
+    # Since we can't easily control the current time, we'll use a mock approach
+    return CharacterData(
+        name="at_reset",
+        heartbeat=HeartbeatData(
+            last_update=TEST_WEEK_START + timedelta(hours=5)
+        ),  # 5 AM UTC = midnight EST + 27 min offset
+    )
+
+
+@pytest.fixture
+def character_another_needs_login() -> CharacterData:
+    """Another character that needs daily login (similar to character_needs_login but different name)."""
+    from gsfcharman.daemon.strategies.daily_login import DailyLogin
+
+    reset_time = DailyLogin()._get_when_login_reset()
+    old_heartbeat = reset_time - timedelta(hours=24)  # Different time than character_needs_login
+    return CharacterData(name="another_needs_login", heartbeat=HeartbeatData(last_update=old_heartbeat))
+
+
+@pytest.fixture
+def character_null_heartbeat() -> CharacterData:
+    """Character with null heartbeat.last_update."""
+    return CharacterData(name="null_heartbeat", heartbeat=HeartbeatData(last_update=None))

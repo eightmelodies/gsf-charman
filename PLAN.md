@@ -58,7 +58,7 @@ The TLDR for this strategy is we rank characters based on the following:
 
 ##### Daily login strategy
 
-TODO: makes sure everyone logs in for the day
+Given a list of characters, return a list containing characters whose last time online was before the most current daily reset (0000 eastern).
 
 ##### Favored character strategy
 

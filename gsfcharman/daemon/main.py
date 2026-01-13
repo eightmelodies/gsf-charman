@@ -1,10 +1,7 @@
 """Charman Daemon - Manages Gemstone character sessions."""
 
-import json
 import subprocess
 import time
-import urllib.error
-import urllib.request
 
 from gsfcharman.daemon.config import API_URL, LICH_BIN, RUBY_BIN
 
@@ -51,43 +48,6 @@ class CharmanDaemon:
             del self.processes[character_name]
             return True
         return False
-
-    def is_character_online(self, character_name: str) -> bool:
-        """Check if a character is online via API."""
-        url = f"{self.api_url}/characters/{character_name}"
-        try:
-            with urllib.request.urlopen(url, timeout=5) as response:
-                return response.status == 200
-        except urllib.error.HTTPError:
-            return False
-        except urllib.error.URLError:
-            return False
-
-    def request_logout(self, character_name: str) -> bool:
-        """Request a character to log out via API."""
-        url = f"{self.api_url}/characters/{character_name}/pending-logout-requests"
-        data = json.dumps({"character": character_name, "request_logout": True}).encode()
-        try:
-            req = urllib.request.Request(url, data=data, method="PUT")
-            req.add_header("Content-Type", "application/json")
-            with urllib.request.urlopen(req, timeout=5) as response:
-                return response.status == 200
-        except urllib.error.HTTPError:
-            return False
-        except urllib.error.URLError:
-            return False
-
-    def get_pending_logout_request(self, character_name: str) -> bool:
-        """Check if a character has a pending logout request."""
-        url = f"{self.api_url}/characters/{character_name}/pending-logout-requests"
-        try:
-            with urllib.request.urlopen(url, timeout=5) as response:
-                data = json.loads(response.read().decode())
-                return data.get("request_logout", False)
-        except urllib.error.HTTPError:
-            return False
-        except urllib.error.URLError:
-            return False
 
     def run(self):
         """Main daemon loop."""

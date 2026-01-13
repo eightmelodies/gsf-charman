@@ -24,11 +24,16 @@ class PendingLogoutRequest(BaseModel):
     when_requested: datetime
 
 
+class HeartbeatData(BaseModel):
+    last_update: Optional[datetime] = None
+
+
 class CharacterData(BaseModel):
     name: Annotated[str, StringConstraints(to_lower=True)]
     lumnis: Optional[LumnisData] = None
     logout_safety: Optional[SafeToLogoutData] = None
     pending_logout_request: Optional[PendingLogoutRequest] = None
+    heartbeat: Optional[HeartbeatData] = None
 
 
 type CharData = dict[str, CharacterData]
