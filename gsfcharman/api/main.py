@@ -7,10 +7,10 @@ from pydantic import StringConstraints
 from gsfcharman.api.data import (
     CharacterData,
     Database,
-    HeartbeatData,
     LumnisData,
     PendingLogoutRequest,
     SafeToLogoutData,
+    SessionData,
 )
 
 db: Database = Database()
@@ -63,13 +63,13 @@ def get_character_pending_logout_request(
     return db.data[character_name].pending_logout_request
 
 
-@app.get("/characters/{character_name}/heartbeat")
-def get_character_heartbeat(
+@app.get("/characters/{character_name}/session")
+def get_character_session(
     character_name: Annotated[str, StringConstraints(to_lower=True)],
-) -> Optional[HeartbeatData]:
+) -> Optional[SessionData]:
     if character_name not in db.characters():
         raise HTTPException(status_code=404, detail=f"Character {character_name} not found.")
-    return db.data[character_name].heartbeat
+    return db.data[character_name].session
 
 
 @app.put("/characters/{character_name}")
@@ -118,16 +118,16 @@ def put_character_pending_logout_request(
     return pending_logout_request
 
 
-@app.put("/characters/{character_name}/heartbeat")
-def put_character_heartbeat(
+@app.put("/characters/{character_name}/session")
+def put_character_session(
     character_name: Annotated[str, StringConstraints(to_lower=True)],
-    heartbeat: HeartbeatData,
-) -> HeartbeatData:
+    session: SessionData,
+) -> SessionData:
     if character_name not in db.characters():
         raise HTTPException(status_code=404, detail=f"Character {character_name} not found.")
 
-    db.data[character_name].heartbeat = heartbeat
-    return heartbeat
+    db.data[character_name].session = session
+    return session
 
 
 @app.post("/characters/{character_name}", status_code=status.HTTP_201_CREATED)

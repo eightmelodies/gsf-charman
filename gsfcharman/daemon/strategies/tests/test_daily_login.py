@@ -59,7 +59,7 @@ class TestDailyLoginStrategy:
         assert reset_time.minute == 27  # The offset should always be 27 minutes
         assert reset_time.tzinfo is not None  # Should have timezone info
 
-    def test_character_with_null_heartbeat_excluded(self, character_null_heartbeat):
-        """Character with null heartbeat.last_update should be excluded."""
-        result = DailyLogin().select([character_null_heartbeat])
+    def test_character_with_null_session_excluded(self, character_null_session):
+        """Character with null session.last_update should be excluded."""
+        result = DailyLogin().select([character_null_session])
         assert result == []

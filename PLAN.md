@@ -106,5 +106,7 @@ This is a very simple FastAPI server that stores and processes information the d
 1. /characters/{name}/pending-logout-requests - whether or not the Licht script should tidy things up and proceed with logging out
 
 ## Next steps
+- We're using snake_case at the API interface, this should really be camelCase. Should make updates to the API and Lich script
 - A configuration API (setting strategies, toggling the daemon's actions on/off, setting favored characters)
 - A dashboard (shows currently logged in character and maybe some simple stats like xp/silver per hr)
+- Eventually I want data persistence so I can useful stuff like metrics and looking back at previous login sessions, etc.

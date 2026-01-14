@@ -26,6 +26,6 @@ class DailyLogin(LoginStrategy):
             [
                 c
                 for c in characters
-                if c.heartbeat and c.heartbeat.last_update and c.heartbeat.last_update < self._get_when_login_reset()
+                if c.session and c.session.last_update and c.session.last_update < self._get_when_login_reset()
             ]
         )

@@ -112,7 +112,6 @@ module CharmanAPI
 
     http = self.get_http
     lumnis_uri = URI.parse("#{self.api_url}/characters/#{URI.encode_www_form_component(character_name)}/lumnis")
-    # TODO: normalize JSON from snake_case to camel
     payload = {
       name: character_name,
       lumnis_3x: lumnis_3x,
