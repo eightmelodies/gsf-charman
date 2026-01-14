@@ -60,9 +60,17 @@ The TLDR for this strategy is we rank characters based on the following:
 
 Given a list of characters, return a list containing characters whose last time online was before the most current daily reset (0000 eastern).
 
+Caveat: Not sure if there's a more accurate way to do this. There is a message at logon or if you're already logged in that lets you know you've gotten the bonus for the day, but it's a one time thing. BOOST INFO gives you an ambiguous "You have been logged in for X days", but no way to tell from when exactly, and then it'd still be unclear when the 30 days cycles.
+
 ##### Favored character strategy
 
-TODO: fallback strategy; choose a favored character that gets the remainder of logon time
+Fallback strategy; choose a favored character that gets the remainder of logon time.
+
+TODO: Initially, I'll just hardcode these in the daemon's config. Eventually we can vend a way to alter them (config API, etc.). Until then, this attribute is defined in config.py's `CharData` and `CHARACTERS` is passed to the FavoredCharacter constructor.
+
+##### Scheduled character strategy
+
+TODO: This isn't something I plan on using, but if other people start to use this I could see it making sense. You define a list of characters and a schedule to keep them logged in during.
 
 ##### Edge cases
 
@@ -97,3 +105,6 @@ This is a very simple FastAPI server that stores and processes information the d
 1. /characters/{name}/lumnis - populated from the Licht script, data about remaining Lumnis experience and weekly resource
 1. /characters/{name}/pending-logout-requests - whether or not the Licht script should tidy things up and proceed with logging out
 
+## Next steps
+- A configuration API (setting strategies, toggling the daemon's actions on/off, setting favored characters)
+- A dashboard (shows currently logged in character and maybe some simple stats like xp/silver per hr)

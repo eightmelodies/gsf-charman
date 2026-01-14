@@ -17,8 +17,19 @@ API_URL = "http://localhost:8000"
 @dataclass
 class CharData:
     name: str
-    account: str
-    priority: int = 0
+    account: str  # We don't need to put the actual account name here because Lich handles the login
+    favored: bool = False
 
 
-CHARACTERS = {"azurai": CharData("Azurai", "account1")}
+CHARACTERS = {
+    "grahl": CharData("grahl", "account1", True),
+    "saero": CharData("saero", "account1"),
+    "halgrin": CharData("halgrin", "account1"),
+    "khaor": CharData("khaor", "account2", True),
+    "moroha": CharData("moroha", "account2"),
+    "telidar": CharData("telidar", "account2"),
+    "virelda": CharData("virelda", "account3"),
+    "thaurin": CharData("thaurin", "account3", True),
+    "umbrik": CharData("umbrik", "account3"),
+    "azurai": CharData("azurai", "account3"),
+}
