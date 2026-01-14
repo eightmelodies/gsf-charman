@@ -1,5 +1,5 @@
 from datetime import datetime, time, timedelta, timezone
-from typing import List
+from typing import List, Optional
 from zoneinfo import ZoneInfo
 
 from gsfcharman.api.data import CharacterData
@@ -21,11 +21,23 @@ class DailyLogin(LoginStrategy):
         today_midnight = datetime.combine(datetime.now(ZoneInfo("America/New_York")), time.min)
         return (today_midnight + self.LOGIN_OFFSET).astimezone(timezone.utc)
 
+    def _get_character_last_active_time(self, character: CharacterData) -> Optional[datetime]:
+        """Returns when a character was last logged in and active"""
+        if not character.session:
+            return None
+        elif character.session.is_logged_in and character.session.last_update:
+            return character.session.last_update
+        elif character.session.last_logon:
+            return character.session.last_logon
+        else:
+            return None
+
     def select(self, characters: List[CharacterData]) -> List[CharacterData]:
         return list(
             [
                 c
                 for c in characters
-                if c.session and c.session.last_update and c.session.last_update < self._get_when_login_reset()
+                if (self._get_character_last_active_time(c) or datetime.min.replace(tzinfo=timezone.utc))
+                < self._get_when_login_reset()
             ]
         )

@@ -18,26 +18,33 @@ class TestDailyLoginStrategy:
 
         assert result == []
 
-    def test_character_no_heartbeat_excluded(self, character_no_heartbeat):
-        """Character without heartbeat data should be excluded."""
+    def test_character_no_session_included(self, character_no_heartbeat):
+        """Character without session data should be included (treated as needing login)."""
         result = DailyLogin().select([character_no_heartbeat])
 
-        assert result == []
+        assert result == [character_no_heartbeat]
 
-    def test_mixed_characters_only_needs_login(
+    def test_mixed_characters_includes_no_session_and_needs_login(
         self, character_needs_login, character_recent_login, character_no_heartbeat
     ):
-        """Only characters needing login should be selected from mixed group."""
+        """Characters with no session data or old activity should be selected."""
         characters = [character_recent_login, character_no_heartbeat, character_needs_login]
         result = DailyLogin().select(characters)
 
-        assert result == [character_needs_login]
+        # Should include characters with no session and characters with old activity
+        assert len(result) == 2
+        assert character_no_heartbeat in result
+        assert character_needs_login in result
+        assert character_recent_login not in result
 
-    def test_empty_result_when_no_eligible(self, character_recent_login, character_no_heartbeat):
-        """Empty result when no characters meet criteria."""
+    def test_includes_no_session_character(self, character_recent_login, character_no_heartbeat):
+        """Character with no session should be included, recent login should not."""
         result = DailyLogin().select([character_recent_login, character_no_heartbeat])
 
-        assert result == []
+        # Should include character with no session, exclude recent login
+        assert len(result) == 1
+        assert result == [character_no_heartbeat]
+        assert character_recent_login not in result
 
     def test_multiple_characters_needing_login(self, character_needs_login, character_another_needs_login):
         """Multiple characters needing login should all be selected."""
@@ -59,7 +66,9 @@ class TestDailyLoginStrategy:
         assert reset_time.minute == 27  # The offset should always be 27 minutes
         assert reset_time.tzinfo is not None  # Should have timezone info
 
-    def test_character_with_null_session_excluded(self, character_null_session):
-        """Character with null session.last_update should be excluded."""
+    def test_character_with_null_session_included(self, character_null_session):
+        """Character with null session data should be included (treated as needing login)."""
         result = DailyLogin().select([character_null_session])
-        assert result == []
+        # Characters with null session data should be included
+        assert len(result) == 1
+        assert result == [character_null_session]
