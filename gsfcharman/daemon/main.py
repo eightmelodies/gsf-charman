@@ -1,61 +1,56 @@
 """Charman Daemon - Manages Gemstone character sessions."""
 
-import subprocess
 import time
 
-from gsfcharman.daemon.config import API_URL, LICH_BIN, RUBY_BIN
+from gsfcharman.daemon.config import API_URL, CHARACTERS
+from gsfcharman.daemon.login_orchestrator import LoginOrchestrator
+from gsfcharman.daemon.strategies.daily_login import DailyLogin
+from gsfcharman.daemon.strategies.favored_character import FavoredCharacter
+from gsfcharman.daemon.strategies.weekly_lumnis import WeeklyLumnis
+from gsfcharman.daemon.strategies.weekly_resource import WeeklyResource
 
 
 class CharmanDaemon:
     """Daemon that manages Lich processes for characters."""
 
-    def __init__(self, dryrun=True):
-        self.processes: dict[str, subprocess.Popen] = {}
-        self.api_url = API_URL
+    def __init__(self, dryrun: bool = True):
         self.dryrun = dryrun
-
-    def start_lich(self, character_name: str, port: int = 9000) -> subprocess.Popen:
-        """Start a Lich process for a character."""
-        cmd = [
-            RUBY_BIN,
-            LICH_BIN,
-            "--login",
-            character_name,
-            "--shattered",
-            "--detachable-client",
-            str(port),
-            "--without-frontend",
-            "--start-scripts",
-            "charman",
-        ]
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+        # Initialize login orchestrator with layered strategies
+        self.login_orchestrator = LoginOrchestrator(
+            strategies=[
+                WeeklyLumnis(),
+                WeeklyResource(),
+                DailyLogin(),
+                FavoredCharacter([char.name for char in CHARACTERS.values() if char.favored]),
+            ],
+            api_url=API_URL,
+            dryrun=dryrun,
         )
-        self.processes[character_name] = process
-        return process
-
-    def stop_lich(self, character_name: str) -> bool:
-        """Stop a Lich process for a character."""
-        process = self.processes.get(character_name)
-        if process:
-            process.terminate()
-            try:
-                process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                process.kill()
-            del self.processes[character_name]
-            return True
-        return False
 
     def run(self):
         """Main daemon loop."""
+        print("Charman Daemon started. Press Ctrl+C to exit.")
 
-        while True:
-            # TODO: poll the API server, get list of characters that should be logged in from our strategy, and process
+        try:
+            while True:
+                try:
+                    # Use orchestrator to handle the complete login workflow
+                    action_performed = self.login_orchestrator.login_character()
+                    if action_performed:
+                        print("Login action performed")
+                    else:
+                        print("No login action needed")
 
-            time.sleep(1)
+                except Exception as e:
+                    print(f"Error in daemon loop: {e}")
+
+                # Poll every 30 seconds
+                time.sleep(30)
+
+        except KeyboardInterrupt:
+            print("Shutting down daemon...")
+            self.login_orchestrator.close()
+            print("Daemon stopped.")
 
 
 def main():
