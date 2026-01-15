@@ -4,7 +4,7 @@ module Lumnis
 
   LUMNIS_2X_PATTERN = /(?:You have|followed by) (?<l2>\d{1,4}) points? of doubled/
   LUMNIS_3X_PATTERN = /^You have (?<l3>\d{1,4}) points? of tripled/
-  LUMNIS_REFRESH_PATTERN = /It is scheduled to refresh in (?<days>\d) days?, (?<hours>\d{1,2}) hours? and (?<minutes>\d{1,2}) minutes?/
+  LUMNIS_REFRESH_PATTERN = /It is scheduled to refresh in (?<days>\d) days?, (?:(?<hours>\d{1,2}) hours? and )?(?<minutes>\d{1,2}) minutes?/
 
   SECONDS_IN_MINUTE = 60
   SECONDS_IN_HOUR = 60 * SECONDS_IN_MINUTE
@@ -126,6 +126,22 @@ module CharmanAPI
     http.request(request)
   end
 
+  def self.update_session(character_name, logged_in=true)
+    self.create_character_if_not_exist(character_name)
+
+    http = self.get_http
+    session_uri = URI.parse("#{self.api_url}/characters/#{URI.encode_www_form_component(character_name)}/session")
+    payload = {
+      last_update: Time.now.utc.iso8601,
+      last_logon: ($login_time ? $login_time.utc.iso8601 : nil),
+      is_logged_in: logged_in
+    }
+    request = Net::HTTP::Put.new(session_uri.path)
+    request['Content-Type'] = 'application/json'
+    request.body = payload.to_json
+    http.request(request)
+  end
+
   def self.get_pending_logout_request(character_name)
     http = self.get_http
     char_uri = URI.parse("#{self.api_url}/characters/#{URI.encode_www_form_component(character_name)}/pending-logout-request")
@@ -137,16 +153,54 @@ module CharmanAPI
 end
 
 module Charman
+  def self.last_session_update
+    @last_session_update ||= Time.at(0)
+  end
+
+  def self.last_session_update=(time)
+    @last_session_update = time
+  end
+
+  def self.last_lumnis_update
+    @last_lumnis_update ||= Time.at(0)
+  end
+
+  def self.last_lumnis_update=(time)
+    @last_lumnis_update = time
+  end
+
+  def self.session_interval
+    UserVars.charman[:session_interval] || 30
+  end
+
+  def self.lumnis_interval
+    UserVars.charman[:lumnis_interval] || 60
+  end
+
+  def self.update_session_data(character_name)
+    current_time = Time.now
+    if current_time - self.last_session_update >= session_interval
+      Lich::Messaging.msg("info", "Updating session data...")
+      CharmanAPI.update_session(character_name)
+      self.last_session_update = current_time
+    end
+  end
+
+  def self.update_lumnis_data(character_name)
+    current_time = Time.now
+    if current_time - self.last_lumnis_update >= lumnis_interval
+      Lich::Messaging.msg("info", "Fetching Lumnis data...")
+      Lumnis.check
+      Lich::Messaging.msg("info", "Updating Lumnis data...")
+      CharmanAPI.update_lumnis(character_name, Lumnis.lumnis_2x, Lumnis.lumnis_3x, Lumnis.resource, Lumnis.refresh)
+      self.last_lumnis_update = current_time
+    end
+  end
+
   def self.run
     character_name = XMLData.name
-    
-    Lich::Messaging.msg("info", "Fetching data for #{character_name}...")
-    Lumnis.check
-
-    Lich::Messaging.msg("info", "Updating API...")
-    CharmanAPI.update_lumnis(character_name, Lumnis.lumnis_2x, Lumnis.lumnis_3x, Lumnis.resource, Lumnis.refresh)
-
-    Lich::Messaging.msg("info", "Done!")
+    update_session_data(character_name)
+    update_lumnis_data(character_name)
   end
 end
 
@@ -161,6 +215,7 @@ if Script.current.vars[0] =~ /^--?help$|\?$/
   _respond "  ;charman run --daemon               - Run continuously in background"
   _respond "  ;charman set --url=URL              - Set API URL"
   _respond "  ;charman set --lumnis-interval=N    - Set Lumnis update interval (in seconds, default: 60)"
+  _respond "  ;charman set --session-interval=N   - Set session update interval (in seconds, default: 30)"
   _respond "  ;charman set                        - Show current configuration"
   _respond "  ;charman --help                     - Show this help"
   _respond ""
@@ -215,15 +270,20 @@ if command == 'set'
       UserVars.charman[:lumnis_interval] = $1.to_i
        Lich::Messaging.msg("info", "Lumnis interval set to: #{$1} seconds")
       lumnis_interval_set = true
+    elsif var =~ /--?session-interval=(\d+)$/
+      UserVars.charman[:session_interval] = $1.to_i
+       Lich::Messaging.msg("info", "Session interval set to: #{$1} seconds")
+      session_interval_set = true
     end
   end
   
   # Show current config if nothing was set
-  unless url_set || lumnis_interval_set || logout_interval_set
+  unless url_set || lumnis_interval_set || session_interval_set
     _respond ""
     _respond "<pushBold/>Current Configuration:<popBold/>"
     _respond "  API URL: #{UserVars.charman[:api_url] || 'http://localhost:8000'}"
     _respond "  Lumnis Interval: #{UserVars.charman[:lumnis_interval] || 60} seconds"
+    _respond "  Session Interval: #{UserVars.charman[:session_interval] || 30} seconds"
     _respond ""
   end
   
@@ -240,13 +300,22 @@ for var in args
     daemon_mode = true
   elsif var =~ /--?lumnis-interval=(\d+)$/
     override_lumnis_interval = $1.to_i
+  elsif var =~ /--?session-interval=(\d+)$/
+    override_session_interval = $1.to_i
   end
 end
 
 # Use override intervals, stored intervals, or defaults
 lumnis_interval = UserVars.charman[:lumnis_interval] || 60
+session_interval = UserVars.charman[:session_interval] || 30
 
 if daemon_mode
+  before_dying {
+    Lich::Messaging.msg("info", "Updating login state")
+    CharmanAPI.update_session(XMLData.name, false)
+
+  }
+
   Lich::Messaging.msg("info", "Starting daemon mode. Use ;k charman to stop.")
   
   loop do
@@ -256,7 +325,7 @@ if daemon_mode
       Lich::Messaging.msg("info", "Error: #{e.message}")
     end
     
-    sleep lumnis_interval
+    sleep [lumnis_interval, session_interval].min
   end
 else
   Charman.run
