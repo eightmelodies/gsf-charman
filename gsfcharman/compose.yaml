@@ -5,6 +5,8 @@ services:
       dockerfile: api/Dockerfile
     ports:
       - "8000:8000"
+    volumes:
+      - db:/var/lib/gsfcharman/chardata
     #restart: unless-stopped
     develop:
       watch:
@@ -31,3 +33,6 @@ services:
           path: requirements.txt
         - action: rebuild
           path: ./daemon/Dockerfile
+
+volumes:
+  db:

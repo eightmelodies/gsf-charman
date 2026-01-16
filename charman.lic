@@ -180,7 +180,7 @@ module Charman
   def self.update_session_data(character_name)
     current_time = Time.now
     if current_time - self.last_session_update >= session_interval
-      Lich::Messaging.msg("info", "Updating session data...")
+      Lich::Messaging.msg("debug", "Updating session data...")
       CharmanAPI.update_session(character_name)
       self.last_session_update = current_time
     end
@@ -189,9 +189,9 @@ module Charman
   def self.update_lumnis_data(character_name)
     current_time = Time.now
     if current_time - self.last_lumnis_update >= lumnis_interval
-      Lich::Messaging.msg("info", "Fetching Lumnis data...")
+      Lich::Messaging.msg("debug", "Fetching Lumnis data...")
       Lumnis.check
-      Lich::Messaging.msg("info", "Updating Lumnis data...")
+      Lich::Messaging.msg("debug", "Updating Lumnis data...")
       CharmanAPI.update_lumnis(character_name, Lumnis.lumnis_2x, Lumnis.lumnis_3x, Lumnis.resource, Lumnis.refresh)
       self.last_lumnis_update = current_time
     end
