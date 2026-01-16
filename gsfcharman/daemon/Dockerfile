@@ -3,4 +3,4 @@ WORKDIR /opt/gsfcharman
 COPY --chown=charman:charman . .
 RUN pip install -r requirements.txt
 WORKDIR /opt
-CMD ["python", "-m", "gsfcharman.daemon.main"]
+CMD ["python", "-u", "-m", "gsfcharman.daemon.main"]

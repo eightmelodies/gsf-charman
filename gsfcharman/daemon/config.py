@@ -9,7 +9,7 @@ RUBY_BIN = "/usr/bin/ruby"
 LICH_BIN = "/home/corgibutts/Lich5/lich.rb"
 
 # API server URL
-API_URL = "http://localhost:8000"
+API_URL = "http://api:8000"
 
 
 # Characters to manage (list of character names)
