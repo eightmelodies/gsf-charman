@@ -9,7 +9,6 @@ from gsfcharman.api.data import (
     Database,
     LumnisData,
     PendingLogoutRequest,
-    SafeToLogoutData,
     SessionData,
 )
 
@@ -43,15 +42,6 @@ def get_character_lumnis(character_name: Annotated[str, StringConstraints(to_low
     if character_name not in db.characters():
         raise HTTPException(status_code=404, detail=f"Character {character_name} not found.")
     return db.data[character_name].lumnis
-
-
-@app.get("/characters/{character_name}/safe-to-logout")
-def get_character_logout_safety(
-    character_name: Annotated[str, StringConstraints(to_lower=True)],
-) -> Optional[SafeToLogoutData]:
-    if character_name not in db.characters():
-        raise HTTPException(status_code=404, detail=f"Character {character_name} not found.")
-    return db.data[character_name].logout_safety
 
 
 @app.get("/characters/{character_name}/pending-logout-request")
@@ -93,17 +83,6 @@ def put_character_lumnis(
 
     db.data[character_name].lumnis = lumnis_data
     return lumnis_data
-
-
-@app.put("/characters/{character_name}/safe-to-logout")
-def put_character_logout_safety(
-    character_name: Annotated[str, StringConstraints(to_lower=True)], logout_safety_data: SafeToLogoutData
-) -> SafeToLogoutData:
-    if character_name not in db.characters():
-        raise HTTPException(status_code=404, detail=f"Character {character_name} not found.")
-
-    db.data[character_name].logout_safety = logout_safety_data
-    return logout_safety_data
 
 
 @app.put("/characters/{character_name}/pending-logout-request")

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import mock_open, patch
 
-from gsfcharman.api.data import CharacterData, Database, LumnisData, SafeToLogoutData
+from gsfcharman.api.data import CharacterData, Database, LumnisData
 
 
 class TestLumnisData:
@@ -20,29 +20,16 @@ class TestLumnisData:
         assert from_json.weekly_resource == sample_lumnis_data.weekly_resource == 5
 
 
-class TestSafeToLogoutData:
-    def test_safe_to_logout_data_creation(self, sample_logout_safety_data):
-        assert sample_logout_safety_data.safe_to_logout is True
-
-    def test_safe_to_logout_data_from_json(self, sample_logout_safety_data):
-        from_json = SafeToLogoutData(**json.loads(sample_logout_safety_data.model_dump_json(by_alias=True)))
-
-        assert from_json.safe_to_logout == sample_logout_safety_data.safe_to_logout
-        assert from_json.last_update == sample_logout_safety_data.last_update
-
-
 class TestCharacterData:
     def test_character_data_creation(self, sample_character_data):
         assert sample_character_data.name == "testcharacter"
         assert sample_character_data.lumnis.lumnis_3x == 10
-        assert sample_character_data.logout_safety.safe_to_logout is True
 
     def test_character_from_json(self, sample_character_data):
         from_json = CharacterData(**json.loads(sample_character_data.model_dump_json(by_alias=True)))
 
         assert from_json.name == sample_character_data.name
         assert from_json.lumnis.lumnis_3x == sample_character_data.lumnis.lumnis_3x
-        assert from_json.logout_safety.last_update == sample_character_data.logout_safety.last_update
 
     def test_character_with_partial_lumnis_data(self, sample_lumnis_data):
         """Test creating a character with only lumnis data (no logout_safety)."""
@@ -53,7 +40,6 @@ class TestCharacterData:
         assert char.lumnis.lumnis_3x == 10
         assert char.lumnis.lumnis_2x == 20
         assert char.lumnis.weekly_resource == 5
-        assert char.logout_safety is None
 
     def test_character_with_only_name(self):
         """Test creating a character with only name (all other fields None)."""
@@ -61,7 +47,6 @@ class TestCharacterData:
 
         assert char.name == "nameonly"
         assert char.lumnis is None
-        assert char.logout_safety is None
 
 
 class TestDatabase:
@@ -113,7 +98,6 @@ class TestDatabase:
         assert db.data[char_name].lumnis.lumnis_3x == 15
         assert db.data[char_name].lumnis.lumnis_2x == 25
         assert db.data[char_name].lumnis.weekly_resource == 8
-        assert db.data[char_name].logout_safety.safe_to_logout is False
 
     def test_save_method(self, temp_db_dir, sample_character_data, mock_datetime_now):
         """Test Database.save() method."""
@@ -140,7 +124,6 @@ class TestDatabase:
 
         assert saved_data["name"] == "testcharacter"
         assert saved_data["lumnis"]["lumnis_3x"] == 10
-        assert saved_data["logout_safety"]["safe_to_logout"] is True
 
     def test_save_skips_recent_entries(self, temp_db_dir, sample_character_data, mock_datetime_now):
         """Test Database.save() skips entries saved recently."""

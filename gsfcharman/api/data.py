@@ -14,11 +14,6 @@ class LumnisData(BaseModel):
     last_update: Optional[datetime] = None
 
 
-class SafeToLogoutData(BaseModel):
-    safe_to_logout: Optional[bool] = None
-    last_update: Optional[datetime] = None
-
-
 class PendingLogoutRequest(BaseModel):
     logout_requested: bool
     when_requested: datetime
@@ -37,7 +32,6 @@ class SessionData(BaseModel):
 class CharacterData(BaseModel):
     name: Annotated[str, StringConstraints(to_lower=True)]
     lumnis: Optional[LumnisData] = None
-    logout_safety: Optional[SafeToLogoutData] = None
     pending_logout_request: Optional[PendingLogoutRequest] = None
     session: Optional[SessionData] = None
 

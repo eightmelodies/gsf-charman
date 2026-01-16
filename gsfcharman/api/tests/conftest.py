@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from gsfcharman.api.data import CharacterData, LumnisData, SafeToLogoutData
+from gsfcharman.api.data import CharacterData, LumnisData
 from gsfcharman.api.main import app, db
 
 
@@ -35,21 +35,9 @@ def sample_lumnis_data():
 
 
 @pytest.fixture
-def sample_logout_safety_data():
-    """Sample SafeToLogoutData for testing."""
-    return SafeToLogoutData(safe_to_logout=True, last_update=datetime.now(timezone.utc))
-
-
-@pytest.fixture
-def sample_character_data(sample_lumnis_data, sample_logout_safety_data):
+def sample_character_data(sample_lumnis_data):
     """Sample CharacterData for testing."""
-    return CharacterData(name="testcharacter", lumnis=sample_lumnis_data, logout_safety=sample_logout_safety_data)
-
-
-@pytest.fixture
-def sample_character_with_lumnis_only(sample_lumnis_data):
-    """Sample CharacterData with only lumnis data (no logout_safety) for testing partial updates."""
-    return CharacterData(name="lumnisonlychar", lumnis=sample_lumnis_data)
+    return CharacterData(name="testcharacter", lumnis=sample_lumnis_data)
 
 
 @pytest.fixture
@@ -97,7 +85,6 @@ def sample_json_files(temp_db_dir, sample_character_data):
             "refresh": datetime.now(timezone.utc).isoformat(),
             "last_update": datetime.now(timezone.utc).isoformat(),
         },
-        "logout_safety": {"safe_to_logout": False, "last_update": datetime.now(timezone.utc).isoformat()},
     }
 
     # Write to file
