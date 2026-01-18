@@ -33,6 +33,12 @@ services:
           path: requirements.txt
         - action: rebuild
           path: ./daemon/Dockerfile
+    secrets:
+      - entry_yaml
+
+secrets:
+  entry_yaml:
+    file: ./entry.yaml
 
 volumes:
   db:

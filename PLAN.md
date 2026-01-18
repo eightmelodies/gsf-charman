@@ -110,3 +110,6 @@ This is a very simple FastAPI server that stores and processes information the d
 - Eventually I want data persistence so I can useful stuff like metrics and looking back at previous login sessions, etc.
 - Need a watchdog task for the API that cleans up login session data (ie., when the charman.lic script doesn't gracefully exit and set is_logged_in to false). If the (last_update + configurable timeout) < now and the state still shows as logged in, we should update to logged out.
 - We should parse entry.yaml for the game/accounts/characters
+- Parse login streak/bridge info?
+- Parse new lumnis
+- lich data should be on a volume as well, especially for logs, etc.

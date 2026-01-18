@@ -2,8 +2,10 @@ module Lumnis
   MAX_LUMNIS_VALUE = 7300
   MAX_RESOURCE_VALUE = 50000
 
-  LUMNIS_2X_PATTERN = /(?:You have|followed by) (?<l2>\d{1,4}) points? of doubled/
-  LUMNIS_3X_PATTERN = /^You have (?<l3>\d{1,4}) points? of tripled/
+  LUMNIS_2X_PATTERN = /^You have (?<l2>[\d,]{1,4}) points? of doubled experience remaining on your Gift of Lumnis/
+  LUMNIS_3X_PATTERN = /^You have (?<l3>[\d,]{1,4}) points? of tripled experience remaining on your Gift of Lumnis/
+  LUMNIS_4X_PATTERN = /^You have (?<l4>[\d,]{1,4}) points? of quadrupled experience remaining on your Gift of Lumnis/
+  LUMNIX_5x_PATTERN = /^You have (?<l5>[\d,]{1,4}) points? of quintupled experience remaining on your Gift of Lumnis/
   LUMNIS_REFRESH_PATTERN = /It is scheduled to refresh in (?<days>\d) days?, (?:(?<hours>\d{1,2}) hours? and )?(?<minutes>\d{1,2}) minutes?/
 
   SECONDS_IN_MINUTE = 60
@@ -12,6 +14,8 @@ module Lumnis
 
   @lumnis_2x = nil
   @lumnis_3x = nil
+  @lumnis_4x = nil
+  @lumnis_5x = nil
   @resource = nil
   @refresh = nil
 
@@ -37,6 +41,22 @@ module Lumnis
 
   def self.lumnis_3x
     @lumnis_3x
+  end
+
+  def self.update_lumnis_4x(result)
+    @lumnis_4x = result =~ LUMNIS_4X_PATTERN ? $~[:l4].to_i : nil
+  end
+
+  def self.lumnis_4x
+    @lumnis_4x
+  end
+
+  def self.update_lumnis_5x(result)
+    @lumnis_5x = result =~ LUMNIS_5X_PATTERN ? $~[:l5].to_i : nil
+  end
+
+  def self.lumnis_5x
+    @lumnis_5x
   end
 
   def self.resource

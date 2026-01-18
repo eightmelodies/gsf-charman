@@ -3,7 +3,10 @@
 import asyncio
 import time
 
-from gsfcharman.daemon.config import CHARACTERS
+import httpx
+
+from gsfcharman.daemon.data.characters import Characters
+from gsfcharman.daemon.data.entries import Entries
 from gsfcharman.daemon.login_orchestrator_async import AsyncLoginOrchestrator
 from gsfcharman.daemon.strategies.daily_login import DailyLogin
 from gsfcharman.daemon.strategies.favored_character import FavoredCharacter
@@ -14,42 +17,30 @@ from gsfcharman.daemon.strategies.weekly_resource import WeeklyResource
 class CharmanDaemon:
     """Daemon that manages Lich processes for characters across multiple accounts."""
 
-    def __init__(self, dryrun: bool = True):
-        self.dryrun = dryrun
-        self.account_orchestrators = self._create_account_orchestrators()
+    def __init__(self, dryrun: bool = True, entry_file_path: str = "entry.yaml"):
+        """
+        Initialize the CharmanDaemon.
 
-    def _create_account_orchestrators(self):
-        """Create orchestrators for each account by grouping characters."""
-        # Group characters by account
-        accounts = {}
-        for char_name, char_data in CHARACTERS.items():
-            if char_data.account not in accounts:
-                accounts[char_data.account] = []
-            accounts[char_data.account].append(char_name)
+        Args:
+            dryrun: If True, run in dry-run mode without actually starting Lich processes
+            entry_file_path: Path to the entry.yaml file
+        """
+        self.dryrun: bool = dryrun
+        self.api_client: httpx.Client = httpx.Client()
+        self.entries: Entries = Entries(entry_file_path)
+        self.characters: Characters = Characters(self.api_client, self.entries)
+        self.login_orchestrators: dict[str, AsyncLoginOrchestrator] = self._create_login_orchestrators()
 
-        # Create orchestrator per account
-        orchestrators = {}
-        for account, characters in accounts.items():
-            # Get favored characters for this account
-            favored_chars = [c for c in characters if CHARACTERS[c].favored]
-
-            orchestrators[account] = AsyncLoginOrchestrator(
-                strategies=[
-                    WeeklyLumnis(),
-                    WeeklyResource(),
-                    DailyLogin(),
-                    FavoredCharacter(favored_chars),
-                ],
-                characters=characters,
-                account=account,
-                dryrun=self.dryrun,
+    def _create_login_orchestrators(self) -> dict[str, AsyncLoginOrchestrator]:
+        favorite_characters = [c for c in self.characters.get_favorite_characters()]
+        return {
+            a.name: AsyncLoginOrchestrator(
+                [DailyLogin(), WeeklyLumnis(), WeeklyResource(), FavoredCharacter(favorite_characters)],
+                a.name,
+                self.characters,
             )
-
-        print(f"Created {len(orchestrators)} account orchestrators:")
-        for account, orchestrator in orchestrators.items():
-            print(f"  - Account {account}: {len(orchestrator.characters)} characters")
-
-        return orchestrators
+            for a in self.entries.accounts
+        }
 
     async def run(self):
         """Main daemon loop using async/await for concurrent account processing."""
@@ -62,13 +53,13 @@ class CharmanDaemon:
                 print(f"\n--- Daemon cycle started at {time.strftime('%H:%M:%S')} ---")
 
                 # Run all account orchestrators concurrently
-                tasks = [orchestrator.login_character() for orchestrator in self.account_orchestrators.values()]
+                tasks = [orchestrator.login_character() for orchestrator in self.login_orchestrators.values()]
 
                 # Execute all tasks concurrently with error handling
                 results = await asyncio.gather(*tasks, return_exceptions=True)
 
                 # Report results
-                for account, result in zip(self.account_orchestrators.keys(), results):
+                for account, result in zip(self.login_orchestrators.keys(), results):
                     if isinstance(result, Exception):
                         print(f"Account {account}: Error - {result}")
                     elif result:
@@ -89,15 +80,15 @@ class CharmanDaemon:
             print("Daemon stopped.")
 
     async def _cleanup(self):
-        """Clean up all account orchestrators."""
+        """Clean up all account orchestrators and the httpx client."""
         print("Cleaning up account orchestrators...")
 
         # Clean up all orchestrators concurrently
-        cleanup_tasks = [orchestrator.close() for orchestrator in self.account_orchestrators.values()]
+        cleanup_tasks = [orchestrator.close() for orchestrator in self.login_orchestrators.values()]
 
         await asyncio.gather(*cleanup_tasks, return_exceptions=True)
 
-        print("All account orchestrators cleaned up.")
+        print("All account orchestrators and httpx client cleaned up.")
 
 
 def main():
