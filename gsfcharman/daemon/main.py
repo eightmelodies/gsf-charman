@@ -5,6 +5,7 @@ import time
 
 import httpx
 
+from gsfcharman.daemon.config import API_URL
 from gsfcharman.daemon.data.characters import Characters
 from gsfcharman.daemon.data.entries import Entries
 from gsfcharman.daemon.login_orchestrator_async import AsyncLoginOrchestrator
@@ -17,7 +18,7 @@ from gsfcharman.daemon.strategies.weekly_resource import WeeklyResource
 class CharmanDaemon:
     """Daemon that manages Lich processes for characters across multiple accounts."""
 
-    def __init__(self, dryrun: bool = True, entry_file_path: str = "entry.yaml"):
+    def __init__(self, dryrun: bool = True, entry_file_path: str = "/run/secrets/entry_yaml"):
         """
         Initialize the CharmanDaemon.
 
@@ -26,7 +27,7 @@ class CharmanDaemon:
             entry_file_path: Path to the entry.yaml file
         """
         self.dryrun: bool = dryrun
-        self.api_client: httpx.Client = httpx.Client()
+        self.api_client: httpx.Client = httpx.Client(base_url=API_URL)
         self.entries: Entries = Entries(entry_file_path)
         self.characters: Characters = Characters(self.api_client, self.entries)
         self.login_orchestrators: dict[str, AsyncLoginOrchestrator] = self._create_login_orchestrators()

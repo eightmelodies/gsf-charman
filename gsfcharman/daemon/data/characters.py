@@ -29,7 +29,7 @@ class Characters:
                         raise exc
 
     def create_character(self, data: CharacterData) -> httpx.Response:
-        return self.client.post(f"/characters/{data.name}", json=data)
+        return self.client.post(f"/characters/{data.name}", json=data.model_dump())
 
     def get_character(self, name: str) -> CharacterData:
         return CharacterData(**self.client.get(f"/characters/{name}").json())

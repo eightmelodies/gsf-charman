@@ -1,38 +1,48 @@
 services:
   api:
     build:
-      context: ./
-      dockerfile: api/Dockerfile
+      context: ./gsfcharman/
+      dockerfile: ./api/Dockerfile
     ports:
       - "8000:8000"
     volumes:
       - db:/var/lib/gsfcharman/chardata
+    healthcheck:
+      test: ["CMD", "httpx", "http://0.0.0.0:8000/debug"]
+      interval: 1s
+      retries: 1
+      start_period: 5s
+      timeout: 1s
     #restart: unless-stopped
     develop:
       watch:
         - action: sync+restart
-          path: ./
+          path: ./gsfcharman
           target: /opt/gsfcharman
           initial_sync: true
         - action: rebuild
-          path: requirements.txt
+          path: ./gsfcharman/requirements.txt
         - action: rebuild
-          path: ./api/Dockerfile
+          path: ./gsfcharman/api/Dockerfile
   daemon:
     build:
-      context: ./
-      dockerfile: daemon/Dockerfile
+      context: ./gsfcharman/
+      dockerfile: ./daemon/Dockerfile
     #restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+        restart: true
     develop:
       watch:
         - action: sync+restart
-          path: ./
+          path: ./gsfcharman
           target: /opt/gsfcharman
           initial_sync: true
         - action: rebuild
-          path: requirements.txt
+          path: ./gsfcharman/requirements.txt
         - action: rebuild
-          path: ./daemon/Dockerfile
+          path: ./gsfcharman/daemon/Dockerfile
     secrets:
       - entry_yaml
 

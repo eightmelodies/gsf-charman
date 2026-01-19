@@ -26,7 +26,7 @@ class Entries:
 
     def __init__(
         self,
-        entry_file_path: str = "entry.yaml",
+        entry_file_path: str = "/run/secrets/entry_yaml",
     ):
         """
         Initialize the CharacterDataManager.
@@ -53,5 +53,17 @@ class Entries:
         if not data or "accounts" not in data:
             raise ValueError("Invalid entry.yaml format: missing accounts section")
 
-        self.accounts = [a for a in data["accounts"].values()]
+        # i hate this and i'm sure there's a better way but i just can't bring myself to care
+        for k, v in data["accounts"].items():
+            self.accounts.append(
+                AccountEntry(
+                    name=k,
+                    characters=[
+                        CharacterEntry(
+                            name=c["char_name"].lower(), game_code=c["game_code"].lower(), is_favorite=c["is_favorite"]
+                        )
+                        for c in v["characters"]
+                    ],
+                )
+            )
         print(f"Successfully loaded {len(self.accounts)} accounts")

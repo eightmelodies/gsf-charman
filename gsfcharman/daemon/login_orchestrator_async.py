@@ -66,7 +66,7 @@ class AsyncLoginOrchestrator:
         print(f"evaluating strategies for account {self.account} and characters {characters}")
         for strategy in self.strategies:
             selected_characters = strategy.select(characters)
-            print(f"  {strategy.__name__} selected {selected_characters}")
+            print(f"  {strategy.__class__.__name__} selected {selected_characters}")
             if selected_characters:
                 print(f"  selected {selected_characters[0].name}")
                 return selected_characters[0]

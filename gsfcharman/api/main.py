@@ -70,7 +70,7 @@ def put_character(
         raise HTTPException(status_code=404, detail=f"Character {character_name} not found.")
 
     db.data[character_name] = character_data
-
+    db.save()
     return db.data[character_name]
 
 
@@ -82,6 +82,7 @@ def put_character_lumnis(
         raise HTTPException(status_code=404, detail=f"Character {character_name} not found.")
 
     db.data[character_name].lumnis = lumnis_data
+    db.save()
     return lumnis_data
 
 
@@ -94,6 +95,7 @@ def put_character_pending_logout_request(
         raise HTTPException(status_code=404, detail=f"Character {character_name} not found.")
 
     db.data[character_name].pending_logout_request = pending_logout_request
+    db.save()
     return pending_logout_request
 
 
@@ -106,6 +108,7 @@ def put_character_session(
         raise HTTPException(status_code=404, detail=f"Character {character_name} not found.")
 
     db.data[character_name].session = session
+    db.save()
     return session
 
 
@@ -117,5 +120,5 @@ def post_character(
         raise HTTPException(status_code=409, detail=f"Character {character_name} already exists.")
 
     db.data[character_name] = character_data
-
+    db.save()
     return db.data[character_name]
