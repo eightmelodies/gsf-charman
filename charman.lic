@@ -10,6 +10,7 @@ module Lumnis
   NO_DONATIONS_PATTERN = /You have not made any recent donations to the Temple of Lumnis./
   NUM_DONATIONS_PATTERN = /You have made (?<donations>\d+) recent donation? to the Temple of Lumnis./
   LUMNIS_REFRESH_PATTERN = /It is scheduled to refresh in (?<days>\d) days?, (?:(?<hours>\d{1,2}) hours? and )?(?<minutes>\d{1,2}) minutes?/
+  LUMNIS_START_PATTERN = /It is scheduled to refresh|restart as soon as you absorb experience|Because your account is free,/
 
   SECONDS_IN_MINUTE = 60
   SECONDS_IN_HOUR = 60 * SECONDS_IN_MINUTE
@@ -24,7 +25,7 @@ module Lumnis
   @refresh = nil
 
   def self.check
-    result = Lich::Util.issue_command("lumnis info", /^(?:Your Gift of Lumnis|You have [\d,]{1,5} points?)/, /<prompt/, silent: true, quiet: true).join
+    result = Lich::Util.issue_command("lumnis info", LUMNIS_START_PATTERN, silent: true, quiet: true, usexml: false).join
 
     self.update_lumnis(result)
     self.update_refresh(result)
@@ -353,7 +354,6 @@ if daemon_mode
   before_dying {
     Lich::Messaging.msg("info", "Updating login state")
     CharmanAPI.update_session(XMLData.name, false)
-
   }
 
   Lich::Messaging.msg("info", "Starting daemon mode. Use ;k charman to stop.")
