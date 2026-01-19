@@ -86,3 +86,7 @@ class WeeklyLumnis(LoginStrategy):
                 _get_refresh(char) if _get_refresh(char) is not None else datetime.min,
             ),
         )
+
+
+# TODO: update this for 4x/5x
+# and eventually cash'lo'nae!

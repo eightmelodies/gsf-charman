@@ -7,8 +7,11 @@ from pydantic import BaseModel, StringConstraints
 
 
 class LumnisData(BaseModel):
+    lumnis_5x: Optional[int] = None
+    lumnis_4x: Optional[int] = None
     lumnis_3x: Optional[int] = None
     lumnis_2x: Optional[int] = None
+    donations: Optional[int] = None
     weekly_resource: Optional[int] = None
     refresh: Optional[datetime] = None
     last_update: Optional[datetime] = None

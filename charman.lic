@@ -2,10 +2,13 @@ module Lumnis
   MAX_LUMNIS_VALUE = 7300
   MAX_RESOURCE_VALUE = 50000
 
-  LUMNIS_2X_PATTERN = /^You have (?<l2>[\d,]{1,4}) points? of doubled experience remaining on your Gift of Lumnis/
-  LUMNIS_3X_PATTERN = /^You have (?<l3>[\d,]{1,4}) points? of tripled experience remaining on your Gift of Lumnis/
-  LUMNIS_4X_PATTERN = /^You have (?<l4>[\d,]{1,4}) points? of quadrupled experience remaining on your Gift of Lumnis/
-  LUMNIX_5x_PATTERN = /^You have (?<l5>[\d,]{1,4}) points? of quintupled experience remaining on your Gift of Lumnis/
+  LUMNIS_2X_PATTERN = /^You have (?<l2>[\d,]{1,5}) points? of doubled experience remaining on your Gift of Lumnis/
+  LUMNIS_3X_PATTERN = /^You have (?<l3>[\d,]{1,5}) points? of tripled experience remaining on your Gift of Lumnis/
+  LUMNIS_4X_PATTERN = /^You have (?<l4>[\d,]{1,5}) points? of quadrupled experience remaining on your Gift of Lumnis/
+  LUMNIS_5X_PATTERN = /^You have (?<l5>[\d,]{1,5}) points? of quintupled experience remaining on your Gift of Lumnis/
+  LUMNIS_EXPIRED_PATTERN = /^Your Gift of Lumnis has expired for this week./
+  NO_DONATIONS_PATTERN = /You have not made any recent donations to the Temple of Lumnis./
+  NUM_DONATIONS_PATTERN = /You have made (?<donations>\d+) recent donation? to the Temple of Lumnis./
   LUMNIS_REFRESH_PATTERN = /It is scheduled to refresh in (?<days>\d) days?, (?:(?<hours>\d{1,2}) hours? and )?(?<minutes>\d{1,2}) minutes?/
 
   SECONDS_IN_MINUTE = 60
@@ -16,47 +19,61 @@ module Lumnis
   @lumnis_3x = nil
   @lumnis_4x = nil
   @lumnis_5x = nil
+  @donations = nil
   @resource = nil
   @refresh = nil
 
   def self.check
-    result = Lich::Util.issue_command("lumnis info", /^(?:Your Gift of Lumnis|You have \d{1,4} points?)/, /<prompt/, silent: true, quiet: true).join
+    result = Lich::Util.issue_command("lumnis info", /^(?:Your Gift of Lumnis|You have [\d,]{1,5} points?)/, /<prompt/, silent: true, quiet: true).join
 
-    self.update_lumnis_2x(result)
-    self.update_lumnis_3x(result)
+    self.update_lumnis(result)
     self.update_refresh(result)
+    self.update_donations(result)
   end
 
-  def self.update_lumnis_2x(result)
-    @lumnis_2x = result =~ LUMNIS_2X_PATTERN ? $~[:l2].to_i : nil
+  def self.update_lumnis(result)
+    case result
+    when LUMNIS_5X_PATTERN
+      @lumnis_5x = $~[:l5].delete(",").to_i
+      @lumnis_4x = @lumnis_3x = @lumnis_2x = MAX_LUMNIS_VALUE
+    when LUMNIS_4X_PATTERN
+      @lumnis_5x = 0
+      @lumnis_4x = $~[:l4].delete(",").to_i
+      @lumnis_3x = @lumnis_2x = MAX_LUMNIS_VALUE
+    when LUMNIS_3X_PATTERN
+      @lumnis_5x = @lumnis_4x = 0
+      @lumnis_3x = $~[:l3].delete(",").to_i
+      @lumnis_2x = MAX_LUMNIS_VALUE
+    when LUMNIS_2X_PATTERN
+      @lumnis_5x =  @lumnis_4x = @lumnis_3x = 0
+      @lumnis_2x = $~[:l2].delete(",").to_i
+    when LUMNIS_EXPIRED_PATTERN
+      @lumnis_5x = @lumnis_4x = @lumnis_3x = @lumnis_2x = 0
+    end
   end
 
   def self.lumnis_2x
     @lumnis_2x
   end
 
-  def self.update_lumnis_3x(result)
-    @lumnis_3x = result =~ LUMNIS_3X_PATTERN ? $~[:l3].to_i : nil
-  end
-
   def self.lumnis_3x
     @lumnis_3x
-  end
-
-  def self.update_lumnis_4x(result)
-    @lumnis_4x = result =~ LUMNIS_4X_PATTERN ? $~[:l4].to_i : nil
   end
 
   def self.lumnis_4x
     @lumnis_4x
   end
 
-  def self.update_lumnis_5x(result)
-    @lumnis_5x = result =~ LUMNIS_5X_PATTERN ? $~[:l5].to_i : nil
-  end
-
   def self.lumnis_5x
     @lumnis_5x
+  end
+
+  def self.donations
+    @donations
+  end
+
+  def self.update_donations(result)
+    @donations = result =~ NO_DONATIONS_PATTERN ? 0 : result =~ NUM_DONATIONS_PATTERN ? $~[:donations].to_i : nil
   end
 
   def self.resource
@@ -127,15 +144,18 @@ module CharmanAPI
     end
   end
 
-  def self.update_lumnis(character_name, lumnis_2x, lumnis_3x, resource, refresh)
+  def self.update_lumnis(character_name, lumnis_2x, lumnis_3x, lumnis_4x, lumnis_5x, donations, resource, refresh)
     self.create_character_if_not_exist(character_name)
 
     http = self.get_http
     lumnis_uri = URI.parse("#{self.api_url}/characters/#{URI.encode_www_form_component(character_name)}/lumnis")
     payload = {
       name: character_name,
+      lumnis_5x: lumnis_5x,
+      lumnis_4x: lumnis_4x,
       lumnis_3x: lumnis_3x,
       lumnis_2x: lumnis_2x,
+      donations: donations,
       weekly_resource: resource,
       refresh: refresh.utc.iso8601,
       last_update: Time.now.utc.iso8601
@@ -212,7 +232,7 @@ module Charman
       Lich::Messaging.msg("debug", "Fetching Lumnis data...")
       Lumnis.check
       Lich::Messaging.msg("debug", "Updating Lumnis data...")
-      CharmanAPI.update_lumnis(character_name, Lumnis.lumnis_2x, Lumnis.lumnis_3x, Lumnis.resource, Lumnis.refresh)
+      CharmanAPI.update_lumnis(character_name, Lumnis.lumnis_2x, Lumnis.lumnis_3x, Lumnis.lumnis_4x, Lumnis.lumnis_5x, Lumnis.donations, Lumnis.resource, Lumnis.refresh)
       self.last_lumnis_update = current_time
     end
   end
