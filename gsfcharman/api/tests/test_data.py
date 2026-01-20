@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import mock_open, patch
 
-from gsfcharman.api.data import CharacterData, Database, LumnisData
+from gsfcharman.api.data import CharacterData, Database, LumnisData, PendingLogoutRequest, SessionData
 
 
 class TestLumnisData:
@@ -49,6 +49,80 @@ class TestCharacterData:
         assert char.lumnis is None
 
 
+class TestPendingLogoutRequest:
+    def test_pending_logout_request_creation(self, sample_pending_logout_request):
+        assert sample_pending_logout_request.logout_requested is True
+        assert sample_pending_logout_request.when_requested is not None
+
+    def test_pending_logout_request_from_json(self, sample_pending_logout_request):
+        from_json = PendingLogoutRequest(**json.loads(sample_pending_logout_request.model_dump_json(by_alias=True)))
+
+        assert from_json.logout_requested == sample_pending_logout_request.logout_requested
+        assert from_json.when_requested == sample_pending_logout_request.when_requested
+
+
+class TestSessionData:
+    def test_session_data_creation(self, sample_session_data):
+        assert sample_session_data.last_update is not None
+        assert sample_session_data.last_logon is not None
+        assert sample_session_data.is_logged_in is True
+
+    def test_session_data_from_json(self, sample_session_data):
+        from_json = SessionData(**json.loads(sample_session_data.model_dump_json(by_alias=True)))
+
+        assert from_json.last_update == sample_session_data.last_update
+        assert from_json.last_logon == sample_session_data.last_logon
+        assert from_json.is_logged_in == sample_session_data.is_logged_in
+
+
+class TestLumnisDataWithNewFields:
+    def test_lumnis_data_with_new_fields(self):
+        """Test LumnisData with the new optional fields."""
+        lumnis = LumnisData(lumnis_5x=5, lumnis_4x=8, lumnis_3x=10, lumnis_2x=20, donations=100, weekly_resource=5)
+
+        assert lumnis.lumnis_5x == 5
+        assert lumnis.lumnis_4x == 8
+        assert lumnis.lumnis_3x == 10
+        assert lumnis.lumnis_2x == 20
+        assert lumnis.donations == 100
+        assert lumnis.weekly_resource == 5
+
+    def test_lumnis_data_with_partial_new_fields(self):
+        """Test LumnisData with only some of the new optional fields."""
+        lumnis = LumnisData(lumnis_5x=5, lumnis_3x=10, weekly_resource=5)
+
+        assert lumnis.lumnis_5x == 5
+        assert lumnis.lumnis_4x is None
+        assert lumnis.lumnis_3x == 10
+        assert lumnis.lumnis_2x is None
+        assert lumnis.donations is None
+        assert lumnis.weekly_resource == 5
+
+
+class TestCharacterDataWithNewFields:
+    def test_character_data_with_all_fields(self, sample_character_data_with_all_fields):
+        """Test CharacterData with all new fields populated."""
+        char = sample_character_data_with_all_fields
+
+        assert char.name == "testcharacter"
+        assert char.lumnis is not None
+        assert char.pending_logout_request is not None
+        assert char.session is not None
+        assert char.pending_logout_request.logout_requested is True
+        assert char.session.is_logged_in is True
+
+    def test_character_data_with_partial_new_fields(self, sample_lumnis_data, sample_pending_logout_request):
+        """Test CharacterData with only some of the new optional fields."""
+        char = CharacterData(
+            name="partialchar", lumnis=sample_lumnis_data, pending_logout_request=sample_pending_logout_request
+        )
+
+        assert char.name == "partialchar"
+        assert char.lumnis is not None
+        assert char.pending_logout_request is not None
+        assert char.session is None
+
+
 class TestDatabase:
     def test_database_initialization(self):
         db = Database()
@@ -80,8 +154,7 @@ class TestDatabase:
         assert len(characters) == 2
 
     def test_load_with_empty_directory(self, temp_db_dir):
-        db = Database()
-        db.FILE_LOCATION = temp_db_dir
+        db = Database(file_location=str(temp_db_dir))
         db.load()
 
         assert len(db.data) == 0
@@ -89,8 +162,7 @@ class TestDatabase:
     def test_load_with_json_files(self, sample_json_files):
         temp_db_dir, char_name = sample_json_files
 
-        db = Database()
-        db.FILE_LOCATION = temp_db_dir
+        db = Database(file_location=str(temp_db_dir))
         db.load()
 
         assert char_name in db.data
@@ -103,8 +175,7 @@ class TestDatabase:
         """Test Database.save() method."""
         current_time = datetime.now(timezone.utc)
 
-        db = Database()
-        db.FILE_LOCATION = temp_db_dir
+        db = Database(file_location=str(temp_db_dir))
         db.data = {"testcharacter": sample_character_data}
         db.lastSaved = {"testcharacter": current_time}
 
@@ -129,8 +200,7 @@ class TestDatabase:
         """Test Database.save() skips entries saved recently."""
         current_time = datetime.now(timezone.utc)
 
-        db = Database()
-        db.FILE_LOCATION = temp_db_dir
+        db = Database(file_location=str(temp_db_dir))
         db.data = {"testcharacter": sample_character_data}
 
         # Set lastSaved to current time (should skip save)

@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from gsfcharman.api.data import CharacterData, LumnisData
+from gsfcharman.api.data import CharacterData, LumnisData, PendingLogoutRequest, SessionData
 from gsfcharman.api.main import app, db
 
 
@@ -41,10 +41,38 @@ def sample_character_data(sample_lumnis_data):
 
 
 @pytest.fixture
-def database_with_sample_data(sample_character_data):
+def sample_pending_logout_request():
+    """Sample PendingLogoutRequest for testing."""
+    return PendingLogoutRequest(logout_requested=True, when_requested=datetime.now(timezone.utc))
+
+
+@pytest.fixture
+def sample_session_data():
+    """Sample SessionData for testing."""
+    return SessionData(last_update=datetime.now(timezone.utc), last_logon=datetime.now(timezone.utc), is_logged_in=True)
+
+
+@pytest.fixture
+def sample_character_data_with_all_fields(sample_lumnis_data, sample_pending_logout_request, sample_session_data):
+    """Sample CharacterData with all fields populated for testing."""
+    return CharacterData(
+        name="testcharacter",
+        lumnis=sample_lumnis_data,
+        pending_logout_request=sample_pending_logout_request,
+        session=sample_session_data,
+    )
+
+
+@pytest.fixture
+def database_with_sample_data(sample_character_data, temp_db_dir):
     """Database instance with sample data populated in the app's db."""
+    # Create the directory if it doesn't exist
+    Path(temp_db_dir).mkdir(parents=True, exist_ok=True)
+
+    # Update the app's global db instance to use the temporary directory
     db.data = {"testcharacter": sample_character_data}
     db.lastSaved = {name: datetime.now(timezone.utc) for name in db.data.keys()}
+    db.file_location = str(temp_db_dir)
     return db
 
 

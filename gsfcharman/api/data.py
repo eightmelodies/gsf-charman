@@ -52,21 +52,23 @@ class Database:
 
     data: CharData
     lastSaved: dict[str, datetime]
+    file_location: str
 
-    def __init__(self, data: Optional[CharData] = None):
+    def __init__(self, data: Optional[CharData] = None, file_location: Optional[str] = None):
         self.data = data if data else {}
         self.lastSaved = {}
+        self.file_location = file_location if file_location else self.FILE_LOCATION
 
     def load(self):
         self.data = {}
-        directory = Path(self.FILE_LOCATION)
+        directory = Path(self.file_location)
         for file_path in [p for p in directory.iterdir() if p.is_file() and p.suffix == ".json"]:
             with open(file_path, "r") as file:
                 self.data[file_path.stem] = CharacterData(**json.load(file))
 
     def save(self):
         for char, char_data in self.data.items():
-            with open(f"{self.FILE_LOCATION}/{char}.json", "w") as file:
+            with open(f"{self.file_location}/{char}.json", "w") as file:
                 if (
                     self.lastSaved.get(char, datetime.min.replace(tzinfo=timezone.utc))
                     + timedelta(seconds=self.PERIODIC_WRITE_INTERVAL_SECONDS)
