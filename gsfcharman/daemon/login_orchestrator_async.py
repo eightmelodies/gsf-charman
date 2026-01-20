@@ -66,7 +66,7 @@ class AsyncLoginOrchestrator:
         print(f"evaluating strategies for account {self.account} and characters {characters}")
         for strategy in self.strategies:
             selected_characters = strategy.select(characters)
-            print(f"  {strategy.__class__.__name__} selected {selected_characters}")
+            print(f"  {strategy.__class__.__name__} selected {[c.name for c in selected_characters]}")
             if selected_characters:
                 print(f"  selected {selected_characters[0].name}")
                 return selected_characters[0]
@@ -89,15 +89,15 @@ class AsyncLoginOrchestrator:
             if current_character:
                 print(f"current logged in character is {current_character.name} and selected {target_character.name}")
                 if self.dryrun:
-                    print(f"[DRYRUN] Account {self.account}: Would log out {current_character}...")
+                    print(f"[DRYRUN] Account {self.account}: Would log out {current_character.name}...")
                 else:
-                    print(f"Account {self.account}: Logging out {current_character}...")
+                    print(f"Account {self.account}: Logging out {current_character.name}...")
                     self.stop_lich(current_character.name)
 
         if self.dryrun:
-            print(f"[DRYRUN] Account {self.account}: Would log in {target_character}...")
+            print(f"[DRYRUN] Account {self.account}: Would log in {target_character.name}...")
         else:
-            print(f"Account {self.account}: Logging in {target_character}...")
+            print(f"Account {self.account}: Logging in {target_character.name}...")
             self.start_lich(target_character.name)
 
     async def close(self):

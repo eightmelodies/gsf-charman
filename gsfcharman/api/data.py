@@ -68,11 +68,11 @@ class Database:
 
     def save(self):
         for char, char_data in self.data.items():
-            with open(f"{self.file_location}/{char}.json", "w") as file:
-                if (
-                    self.lastSaved.get(char, datetime.min.replace(tzinfo=timezone.utc))
-                    + timedelta(seconds=self.PERIODIC_WRITE_INTERVAL_SECONDS)
-                ) <= now():
+            if (
+                self.lastSaved.get(char, datetime.min.replace(tzinfo=timezone.utc))
+                + timedelta(seconds=self.PERIODIC_WRITE_INTERVAL_SECONDS)
+            ) <= now():
+                with open(f"{self.file_location}/{char}.json", "w") as file:
                     file.write(char_data.model_dump_json(by_alias=True, indent=2))
                     self.lastSaved[char] = now()
 
