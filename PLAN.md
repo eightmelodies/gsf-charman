@@ -113,3 +113,4 @@ This is a very simple FastAPI server that stores and processes information the d
 - Parse login streak/bridge info?
 - Parse new lumnis
 - lich data should be on a volume as well, especially for logs, etc.
+- edge case: logging off with field experience > remaining lumnis bonus. if you do this it'd log you back in again. not a big deal for when we're running everything in an automated fashion, but i do this a lot when i play manually and it would make the strategy a tiny bit more efficient because of the offline absorption
