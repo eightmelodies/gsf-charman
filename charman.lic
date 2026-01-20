@@ -30,6 +30,11 @@ module Lumnis
     self.update_lumnis(result)
     self.update_refresh(result)
     self.update_donations(result)
+
+    # TODO: For now this works, but if it's unreliable we'll eventually need to build either our own proc that can handle the variable lines in the resources command
+    # or determine if a character is capable of generating resources by looking at profession/spell/etc data and building the end line from that
+    end_line = Resources.weekly.nil? ? /Voln Favor:/ : /Suffused/
+    Lich::Util.issue_command("resource", /^Health:/, end_line, silent: true, quiet: true)
   end
 
   def self.update_lumnis(result)
@@ -78,7 +83,7 @@ module Lumnis
   end
 
   def self.resource
-    @resource = Resources.check(quiet=true).first
+    @resource = Resources.weekly
     @resource
   end
 
