@@ -20,9 +20,8 @@ class WeeklyResource(LoginStrategy):
         """Returns whether or not the chracter is capable of earning weekly resource."""
         return (
             character.lumnis is not None
-            and character.lumnis.lumnis_2x is not None
             and character.lumnis.weekly_resource is not None
-            and character.lumnis.weekly_resource > 0
+            and character.lumnis.weekly_resource < WEEKLY_RESOURCE_CAP
         )
 
     def select(self, characters: List[CharacterData]) -> List[CharacterData]:
@@ -38,11 +37,7 @@ class WeeklyResource(LoginStrategy):
             Returns empty list if no characters meet the criteria.
         """
         # Filter to characters that can earn weekly resource
-        eligible_chars = [
-            c
-            for c in characters
-            if c.lumnis and c.lumnis.weekly_resource is not None and c.lumnis.weekly_resource < WEEKLY_RESOURCE_CAP
-        ]
+        eligible_chars = [c for c in characters if self._can_earn_resource(c)]
 
         # Sort by upcoming refresh date (ie., the earlier the refresh date the higher the priority)
         date_max = datetime.max.replace(tzinfo=timezone.utc)
