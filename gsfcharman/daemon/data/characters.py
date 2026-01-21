@@ -49,7 +49,8 @@ class Characters:
         elif len(logged_in) == 1:
             return logged_in[0]
         else:
+            # TODO: I think here we can look at who has the most recent refresh date and set logged off for anyone else
             raise RuntimeError("expected only one character to be logged into account {account}, but got: {logged_in}")
 
     def get_favorite_characters(self) -> list[str]:
-        return [c.name for a in self.accounts.values() for c in a.characters]
+        return [c.name for a in self.accounts.values() for c in a.characters if c.is_favorite]

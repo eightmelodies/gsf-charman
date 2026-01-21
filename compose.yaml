@@ -28,6 +28,18 @@ services:
     build:
       context: ./gsfcharman/
       dockerfile: ./daemon/Dockerfile
+    ports:
+      - "9000-9010:9000-9010"
+    volumes:
+      - type: bind
+        source: ../lich/data
+        target: /opt/Lich5/data
+      - type: bind
+        source: ../lich/scripts
+        target: /opt/Lich5/scripts
+      - type: bind
+        source: ../lich/logs
+        target: /opt/Lich5/logs
     #restart: unless-stopped
     depends_on:
       api:

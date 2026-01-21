@@ -9,7 +9,7 @@ class CharacterEntry:
     """Represents a character entry from entry.yaml."""
 
     name: str
-    game_code: str  # TODO: support different game modes?
+    game_code: str
     is_favorite: bool = False
 
 

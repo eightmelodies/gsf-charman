@@ -1,12 +1,15 @@
 """Async Login Orchestrator - Manages character login/logout decisions using strategies with async support."""
 
+import os
+import shlex
 import subprocess
-from typing import Dict
+from typing import Dict, Optional
 
 from gsfcharman.api.data import CharacterData
-from gsfcharman.daemon.config import LICH_BIN, RUBY_BIN
 from gsfcharman.daemon.data.characters import Characters
 from gsfcharman.daemon.strategies.base import LoginStrategy
+
+GAME_CODE_MAPPINGS = {"GS3": ["--gemstone"], "GST": ["--gemstone", "--test"], "GSF": ["--shattered"]}
 
 
 class AsyncLoginOrchestrator:
@@ -17,36 +20,59 @@ class AsyncLoginOrchestrator:
         strategies: list[LoginStrategy],
         account: str,
         characters: Characters,
+        ruby_bin: Optional[str] = None,
+        lich_bin: Optional[str] = None,
         dryrun: bool = True,
     ):
         self.strategies = strategies
         self.characters = characters
         self.account = account
+        self.ruby_bin = ruby_bin or os.environ.get("RUBY_BIN", "/usr/bin/ruby")
+        self.lich_bin = lich_bin or os.environ.get("LICH_BIN", "/opt/Lich5/lich.rbw")
         self.dryrun = dryrun
         self.processes: Dict[str, subprocess.Popen] = {}
 
-    def start_lich(self, character_name: str, port: int = 9000) -> subprocess.Popen:
+    def get_game_code_argument(self, character: CharacterData) -> list[str]:
+        character_entry_data = [
+            c for c in self.characters.accounts[self.account].characters if c.name == character.name
+        ]
+        if not character_entry_data:
+            raise RuntimeError(f"could not locate {character.name} in Lich entry data")
+        game_code = character_entry_data[0].game_code.upper()
+        if game_code not in GAME_CODE_MAPPINGS:
+            raise RuntimeError(f"game code {game_code} not in known game code mappings: {GAME_CODE_MAPPINGS}")
+        return GAME_CODE_MAPPINGS[game_code]
+
+    def start_lich(self, character: CharacterData, port: int = 9000):
         """Start a Lich process for a character."""
+        # TODO: this should be its own method
+        if character.name in self.processes:
+            proc = self.processes[character.name]
+            rcode = proc.poll()
+            if rcode is None:
+                print(f"lich process still running with pid {proc.pid}")
+            else:
+                output, _ = proc.communicate()
+                print(f"lich process completed with pid {proc.pid} and rcode {rcode}: {output}")
+                del self.processes[character.name]
+            return
+
         # TODO: dynamic ports
         cmd = [
-            RUBY_BIN,
-            LICH_BIN,
+            self.ruby_bin,
+            self.lich_bin,
             "--login",
-            character_name,
-            "--shattered",
+            character.name,
+            *self.get_game_code_argument(character),
             "--detachable-client",
             str(port),
             "--without-frontend",
             "--start-scripts",
             "charman",
         ]
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        self.processes[character_name] = process
-        return process
+        print(f"spawning lich process with cmd: {shlex.join(cmd)}")
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        self.processes[character.name] = process
 
     def stop_lich(self, character_name: str) -> bool:
         """Stop a Lich process for a character."""
@@ -98,11 +124,10 @@ class AsyncLoginOrchestrator:
             print(f"[DRYRUN] Account {self.account}: Would log in {target_character.name}...")
         else:
             print(f"Account {self.account}: Logging in {target_character.name}...")
-            self.start_lich(target_character.name)
+            self.start_lich(target_character)
 
     async def close(self):
-        """Close the HTTP client and clean up processes."""
-        # Clean up any running processes
+        """Clean up processes."""
         for char_name, process in self.processes.items():
             print(f"Account {self.account}: Stopping Lich process for {char_name}...")
             process.terminate()

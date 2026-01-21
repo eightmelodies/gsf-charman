@@ -19,7 +19,7 @@ db: Database = Database()
 async def lifespan(app: FastAPI):
     db.load()
     yield
-    db.save()
+    db.save(bypass_write_interval=True)
 
 
 app = FastAPI(lifespan=lifespan)

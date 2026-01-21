@@ -109,8 +109,10 @@ This is a very simple FastAPI server that stores and processes information the d
 - A dashboard (shows currently logged in character and maybe some simple stats like xp/silver per hr)
 - Eventually I want data persistence so I can useful stuff like metrics and looking back at previous login sessions, etc.
 - Need a watchdog task for the API that cleans up login session data (ie., when the charman.lic script doesn't gracefully exit and set is_logged_in to false). If the (last_update + configurable timeout) < now and the state still shows as logged in, we should update to logged out.
-- We should parse entry.yaml for the game/accounts/characters
 - Parse login streak/bridge info?
-- Parse new lumnis
-- lich data should be on a volume as well, especially for logs, etc.
 - edge case: logging off with field experience > remaining lumnis bonus. if you do this it'd log you back in again. not a big deal for when we're running everything in an automated fashion, but i do this a lot when i play manually and it would make the strategy a tiny bit more efficient because of the offline absorption
+
+# TODO
+- ports for lich proxies
+- bind lich data/scripts/logs ? backing up data/logs?
+- tidy up .env -> compose -> Dockerfile variables

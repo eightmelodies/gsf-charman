@@ -66,12 +66,12 @@ class Database:
             with open(file_path, "r") as file:
                 self.data[file_path.stem] = CharacterData(**json.load(file))
 
-    def save(self):
+    def save(self, bypass_write_interval: bool = False):
         for char, char_data in self.data.items():
             if (
                 self.lastSaved.get(char, datetime.min.replace(tzinfo=timezone.utc))
                 + timedelta(seconds=self.PERIODIC_WRITE_INTERVAL_SECONDS)
-            ) <= now():
+            ) <= now() or bypass_write_interval:
                 with open(f"{self.file_location}/{char}.json", "w") as file:
                     file.write(char_data.model_dump_json(by_alias=True, indent=2))
                     self.lastSaved[char] = now()
