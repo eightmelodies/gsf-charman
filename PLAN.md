@@ -113,6 +113,6 @@ This is a very simple FastAPI server that stores and processes information the d
 - edge case: logging off with field experience > remaining lumnis bonus. if you do this it'd log you back in again. not a big deal for when we're running everything in an automated fashion, but i do this a lot when i play manually and it would make the strategy a tiny bit more efficient because of the offline absorption
 
 # TODO
-- ports for lich proxies
+- ports for lich proxies. maybe i just take each account in entry.yaml, as ordered, and assign each account a port. default max of 10 ports. if you have more than this you gotta pay the whale tax and make some edits on your own.
 - bind lich data/scripts/logs ? backing up data/logs?
-- tidy up .env -> compose -> Dockerfile variables
+- actual orchestration (mostly around logout)

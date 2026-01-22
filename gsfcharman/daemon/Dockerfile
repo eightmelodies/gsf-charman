@@ -35,7 +35,7 @@ RUN gem install bundler --no-document
 RUN cd Lich5 && bundle install
 
 # Used by the daemon to find lich
-ENV LICH_PATH /opt/Lich5
+ARG LICH_PATH=/opt/Lich5
 ENV LICH_BIN "$LICH_PATH/lich.rbw"
 
 FROM build_lich AS build_app
