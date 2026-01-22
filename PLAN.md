@@ -108,11 +108,17 @@ This is a very simple FastAPI server that stores and processes information the d
 - A configuration API (setting strategies, toggling the daemon's actions on/off, setting favored characters)
 - A dashboard (shows currently logged in character and maybe some simple stats like xp/silver per hr)
 - Eventually I want data persistence so I can useful stuff like metrics and looking back at previous login sessions, etc.
-- Need a watchdog task for the API that cleans up login session data (ie., when the charman.lic script doesn't gracefully exit and set is_logged_in to false). If the (last_update + configurable timeout) < now and the state still shows as logged in, we should update to logged out.
 - Parse login streak/bridge info?
 - edge case: logging off with field experience > remaining lumnis bonus. if you do this it'd log you back in again. not a big deal for when we're running everything in an automated fashion, but i do this a lot when i play manually and it would make the strategy a tiny bit more efficient because of the offline absorption
 - I spent a couple hours trying to get the enhanced encryption to work with gnome-keyring, libsecret-tools, dbus but there appears to be some extra trickery needed without x11. For now only plaintext|standard entry.yaml files will work and these get copied over from the data bind mount.
 - 10 ports are mappable for the lich proxies. This is more than enough for my purposes. Supporting arbitrary ports means scaling horizontally and requires solving some additional problems (multiple containers means multiple lich data, etc.).
+- There's some tuning to do cuz the app is pretty liberal with API calls. Should probably at least add some @ttl_cache decorators to the daemon's Character module. This isn't super important since the API is a sidecar.
+- I wonder what kind of minor gains I would get if I wrote a strategy that prioritized logins by when your mind was empty. So every character in an account hunts til fried, logs out, and when they are drained they log back in again.
 
 # TODO
+- print statements -> proper logging
+- daemon responds to sigterm for proper cleanup
+- Need a watchdog task for the API that cleans up login session data (ie., when the charman.lic script doesn't gracefully exit and set is_logged_in to false). If the (last_update + configurable timeout) < now and the state still shows as logged in, we should update to logged out. I wonder if we just have the daemon set this field since it is a more definitive source of truth. Then on daemon startup we can update any stale data that would have been a result of improper daemon shutdown. One downside to this would be the field would reflect only that the process is running, and not that we're precisely logged in and able to update the API from lich. Maybe two separate fields?
 - actual orchestration (mostly around logout)
+
+Mostly done with the orchestration. Daemon now send a logout request. Next step here is to update charman.lic to process these.

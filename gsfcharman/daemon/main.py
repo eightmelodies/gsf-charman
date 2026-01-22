@@ -1,6 +1,7 @@
 """Charman Daemon - Manages Gemstone character sessions with async multi-account support."""
 
 import asyncio
+import os
 import time
 
 import httpx
@@ -20,7 +21,7 @@ PORTS = ["9000", "9001", "9002", "9003", "9004", "9005", "9006", "9007", "9008",
 class CharmanDaemon:
     """Daemon that manages Lich processes for characters across multiple accounts."""
 
-    def __init__(self, dryrun: bool = True, entry_file_path: str = "/run/secrets/entry_yaml"):
+    def __init__(self, entry_file_path: str):
         """
         Initialize the CharmanDaemon.
 
@@ -28,14 +29,13 @@ class CharmanDaemon:
             dryrun: If True, run in dry-run mode without actually starting Lich processes
             entry_file_path: Path to the entry.yaml file
         """
-        self.dryrun: bool = dryrun
         self.api_client: httpx.Client = httpx.Client(base_url=API_URL)
         self.entries: Entries = Entries(entry_file_path)
         self.characters: Characters = Characters(self.api_client, self.entries)
         self.login_orchestrators: dict[str, AsyncLoginOrchestrator] = self._create_login_orchestrators()
 
     def _create_login_orchestrators(self) -> dict[str, AsyncLoginOrchestrator]:
-        port_mappings = {a.name: p for a in self.entries.accounts for p in PORTS}
+        port_mappings = dict(zip([a.name for a in self.entries.accounts], PORTS))
         print(f"assigning account:port mappings as follows: {port_mappings}")
         return {
             a.name: AsyncLoginOrchestrator(
@@ -63,7 +63,7 @@ class CharmanDaemon:
                 print(f"\n--- Daemon cycle started at {time.strftime('%H:%M:%S')} ---")
 
                 # Run all account orchestrators concurrently
-                tasks = [orchestrator.login_character() for orchestrator in self.login_orchestrators.values()]
+                tasks = [orchestrator.orchestrate() for orchestrator in self.login_orchestrators.values()]
 
                 # Execute all tasks concurrently with error handling
                 results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -103,7 +103,8 @@ class CharmanDaemon:
 
 def main():
     """Entry point for the daemon."""
-    daemon = CharmanDaemon()
+    lich_path = os.environ.get("LICH_PATH", "/opt/Lich5")
+    daemon = CharmanDaemon(entry_file_path=f"{lich_path}/data/entry.yaml")
     asyncio.run(daemon.run())
 
 

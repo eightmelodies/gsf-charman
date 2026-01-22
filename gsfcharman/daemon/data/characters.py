@@ -1,9 +1,25 @@
+from datetime import UTC, datetime
 from typing import Optional
 
 import httpx
 
-from gsfcharman.api.data import CharacterData
+from gsfcharman.api.data import CharacterData, PendingLogoutRequest
 from gsfcharman.daemon.data.entries import AccountEntry, Entries
+
+
+class MultipleCharactersLoggedIn(Exception):
+    """Raised when multiple characters in the same account are marked as logged in by the API"""
+
+    def __init__(
+        self, account: str, characters: list[CharacterData], message: str = "Multiple characters logged into API"
+    ):
+        self.account = account
+        self.characters = characters
+        self.message = message
+        super().__init__(self.message)
+
+    def __str__(self):
+        return f"Multiple characters logged in for account {self.account}: {[c.name for c in self.characters]}"
 
 
 class Characters:
@@ -29,7 +45,7 @@ class Characters:
                         raise exc
 
     def create_character(self, data: CharacterData) -> httpx.Response:
-        return self.client.post(f"/characters/{data.name}", json=data.model_dump())
+        return self.client.post(f"/characters/{data.name}", json=data.model_dump(mode="json"))
 
     def get_character(self, name: str) -> CharacterData:
         return CharacterData(**self.client.get(f"/characters/{name}").json())
@@ -49,8 +65,18 @@ class Characters:
         elif len(logged_in) == 1:
             return logged_in[0]
         else:
-            # TODO: I think here we can look at who has the most recent refresh date and set logged off for anyone else
-            raise RuntimeError("expected only one character to be logged into account {account}, but got: {logged_in}")
+            raise MultipleCharactersLoggedIn(account, logged_in)
 
     def get_favorite_characters(self) -> list[str]:
         return [c.name for a in self.accounts.values() for c in a.characters if c.is_favorite]
+
+    def put_logout_request(self, character: CharacterData, when_requested: Optional[datetime] = None):
+        self.client.put(
+            f"/characters/{character.name}/pending-logout-request",
+            json=PendingLogoutRequest(
+                logout_requested=True, when_requested=when_requested or datetime.now(UTC)
+            ).model_dump(mode="json"),
+        )
+
+    def delete_logout_request(self, character: CharacterData):
+        self.client.delete(f"/characters/{character.name}/pending-logout-request")

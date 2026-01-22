@@ -122,3 +122,12 @@ def post_character(
     db.data[character_name] = character_data
     db.save()
     return db.data[character_name]
+
+
+@app.delete("/characters/{character_name}/pending-logout-request")
+def del_character_pending_logout_request(character_name: Annotated[str, StringConstraints(to_lower=True)]):
+    if character_name not in db.characters():
+        raise HTTPException(status_code=404, detail=f"Character {character_name} not found.")
+
+    db.data[character_name].pending_logout_request = None
+    db.save()

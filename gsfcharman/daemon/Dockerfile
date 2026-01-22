@@ -36,6 +36,7 @@ RUN cd Lich5 && bundle install
 
 # Used by the daemon to find lich
 ARG LICH_PATH=/opt/Lich5
+ENV LICH_PATH=$LICH_PATH
 ENV LICH_BIN "$LICH_PATH/lich.rbw"
 
 FROM build_lich AS build_app
