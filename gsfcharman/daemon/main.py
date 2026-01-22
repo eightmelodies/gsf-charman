@@ -14,6 +14,8 @@ from gsfcharman.daemon.strategies.favored_character import FavoredCharacter
 from gsfcharman.daemon.strategies.weekly_lumnis import WeeklyLumnis
 from gsfcharman.daemon.strategies.weekly_resource import WeeklyResource
 
+PORTS = ["9000", "9001", "9002", "9003", "9004", "9005", "9006", "9007", "9008", "9009"]
+
 
 class CharmanDaemon:
     """Daemon that manages Lich processes for characters across multiple accounts."""
@@ -33,12 +35,19 @@ class CharmanDaemon:
         self.login_orchestrators: dict[str, AsyncLoginOrchestrator] = self._create_login_orchestrators()
 
     def _create_login_orchestrators(self) -> dict[str, AsyncLoginOrchestrator]:
-        favorite_characters = [c for c in self.characters.get_favorite_characters()]
+        port_mappings = {a.name: p for a in self.entries.accounts for p in PORTS}
+        print(f"assigning account:port mappings as follows: {port_mappings}")
         return {
             a.name: AsyncLoginOrchestrator(
-                [DailyLogin(), WeeklyLumnis(), WeeklyResource(), FavoredCharacter(favorite_characters)],
+                [
+                    DailyLogin(),
+                    WeeklyLumnis(),
+                    WeeklyResource(),
+                    FavoredCharacter([c for c in self.characters.get_favorite_characters()]),
+                ],
                 a.name,
                 self.characters,
+                port_mappings[a.name],
             )
             for a in self.entries.accounts
         }

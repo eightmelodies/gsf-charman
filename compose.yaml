@@ -31,7 +31,7 @@ services:
       args:
         LICH_PATH: ${CONTAINER_LICH_PATH:-/opt/Lich5}
     ports:
-      - "9000-9010:9000-9010"
+      - "9000-9009:9000-9009"
     volumes:
       - type: bind
         source: ${LICH_PATH:-../lich}/data
@@ -60,12 +60,6 @@ services:
           path: ./gsfcharman/requirements.txt
         - action: rebuild
           path: ./gsfcharman/daemon/Dockerfile
-    secrets:
-      - entry_yaml
-
-secrets:
-  entry_yaml:
-    file: ./entry.yaml
 
 volumes:
   db:

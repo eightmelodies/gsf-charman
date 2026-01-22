@@ -3,6 +3,8 @@
 import os
 import shlex
 import subprocess
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Dict, Optional
 
 from gsfcharman.api.data import CharacterData
@@ -10,6 +12,15 @@ from gsfcharman.daemon.data.characters import Characters
 from gsfcharman.daemon.strategies.base import LoginStrategy
 
 GAME_CODE_MAPPINGS = {"GS3": ["--gemstone"], "GST": ["--gemstone", "--test"], "GSF": ["--shattered"]}
+
+
+@dataclass
+class ProcessInfo:
+    when_started: datetime
+    when_logoff_requested: Optional[datetime]
+    p_open: subprocess.Popen
+    account: str
+    character: CharacterData
 
 
 class AsyncLoginOrchestrator:
@@ -20,6 +31,7 @@ class AsyncLoginOrchestrator:
         strategies: list[LoginStrategy],
         account: str,
         characters: Characters,
+        port: str,
         ruby_bin: Optional[str] = None,
         lich_bin: Optional[str] = None,
         dryrun: bool = True,
@@ -27,12 +39,13 @@ class AsyncLoginOrchestrator:
         self.strategies = strategies
         self.characters = characters
         self.account = account
+        self.port = port
         self.ruby_bin = ruby_bin or os.environ.get("RUBY_BIN", "/usr/bin/ruby")
         self.lich_bin = lich_bin or os.environ.get("LICH_BIN", "/opt/Lich5/lich.rbw")
         self.dryrun = dryrun
         self.processes: Dict[str, subprocess.Popen] = {}
 
-    def get_game_code_argument(self, character: CharacterData) -> list[str]:
+    def _get_game_code_argument(self, character: CharacterData) -> list[str]:
         character_entry_data = [
             c for c in self.characters.accounts[self.account].characters if c.name == character.name
         ]
@@ -63,7 +76,7 @@ class AsyncLoginOrchestrator:
             self.lich_bin,
             "--login",
             character.name,
-            *self.get_game_code_argument(character),
+            *self._get_game_code_argument(character),
             f"--detachable-client=0.0.0.0:{str(port)}",
             "--without-frontend",
             "--start-scripts",
