@@ -34,6 +34,21 @@ class CharmanDaemon:
         self.characters: Characters = Characters(self.api_client, self.entries)
         self.login_orchestrators: dict[str, AsyncLoginOrchestrator] = self._create_login_orchestrators()
 
+        self._init_api_data()
+
+    def _init_api_data(self):
+        for account in self.entries.accounts:
+            for character in self.characters.get_characters_for_account(account.name):
+                try:
+                    self.characters.delete_logout_request(character.name)
+                except Exception as e:
+                    print(f"ERROR: could not init logout request data for {character.name}: {e}")
+
+                try:
+                    self.characters.set_logged_out(character.name)
+                except Exception as e:
+                    print(f"ERROR: could not init is_logged_out data for {character.name}: {e}")
+
     def _create_login_orchestrators(self) -> dict[str, AsyncLoginOrchestrator]:
         port_mappings = dict(zip([a.name for a in self.entries.accounts], PORTS))
         print(f"assigning account:port mappings as follows: {port_mappings}")

@@ -1,3 +1,6 @@
+require 'net/http'
+require 'json'
+
 module Lumnis
   MAX_LUMNIS_VALUE = 7300
   MAX_RESOURCE_VALUE = 50000
@@ -33,6 +36,8 @@ module Lumnis
 
     # TODO: For now this works, but if it's unreliable we'll eventually need to build either our own proc that can handle the variable lines in the resources command
     # or determine if a character is capable of generating resources by looking at profession/spell/etc data and building the end line from that
+    # One thing I've noticed so far is that the voln-favor script will call this same command and if it happens at the same time ours will bleed through
+    # Might be worth just seeing how fresh this data is without us calling the command each time
     end_line = Resources.weekly.nil? ? /Voln Favor:/ : /Suffused/
     Lich::Util.issue_command("resource", /^Health:/, end_line, silent: true, quiet: true)
   end
@@ -198,6 +203,38 @@ module CharmanAPI
   end
 end
 
+module LogoutHandler
+  @should_logout = false
+  @started_logout = false
+
+  def self.is_logout_pending?
+    return true if @should_logout
+
+    response = CharmanAPI.get_pending_logout_request(Char.name)
+    return false unless response.is_a?(Net::HTTPSuccess)
+
+    begin
+      logout_requested = JSON.parse(response.body, symbolize_names: true)[:logout_requested]
+      if logout_requested
+        Lich::Messaging.msg("info", "LOGOUT REQUESTED BY CHARMAN API")
+        @should_logout = true
+      end
+      return logout_requested
+    rescue JSON::ParserError => e
+      return false
+    end
+  end
+
+  def self.run
+    return unless is_logout_pending?
+    return if @started_logout
+    start_script("charmanlogout")
+    @started_logout = true
+  end
+
+
+end
+
 module Charman
   def self.last_session_update
     @last_session_update ||= Time.at(0)
@@ -247,6 +284,7 @@ module Charman
     character_name = XMLData.name
     update_session_data(character_name)
     update_lumnis_data(character_name)
+    LogoutHandler.run
   end
 end
 
@@ -256,9 +294,8 @@ if Script.current.vars[0] =~ /^--?help$|\?$/
   _respond "<pushBold/>charman.lic - Send Lumnis data to API<popBold/>"
   _respond ""
   _respond "Usage:"
-  _respond "  ;charman                            - Run once (fetch and send all data)"
+  _respond "  ;charman                            - Run continuously"
   _respond "  ;charman run                        - Run once (fetch and send all data)"
-  _respond "  ;charman run --daemon               - Run continuously in background"
   _respond "  ;charman set --url=URL              - Set API URL"
   _respond "  ;charman set --lumnis-interval=N    - Set Lumnis update interval (in seconds, default: 60)"
   _respond "  ;charman set --session-interval=N   - Set session update interval (in seconds, default: 30)"
@@ -294,11 +331,14 @@ for var in all_args
   end
 end
 
-# If no subcommand found, treat as run
 if command.nil?
-  command = 'run'
+  daemon_mode = true
   # Collect all args except the first (full command)
   args = all_args[1..-1].compact
+end
+
+if command == 'run'
+  daemon_mode = false
 end
 
 # Handle set subcommand
@@ -336,15 +376,11 @@ if command == 'set'
   exit
 end
 
-# Handle run subcommand (or no command with flags)
-daemon_mode = false
 override_lumnis_interval = nil
 override_logout_interval = nil
 
 for var in args
-  if var =~ /^--?daemon$/
-    daemon_mode = true
-  elsif var =~ /--?lumnis-interval=(\d+)$/
+  if var =~ /--?lumnis-interval=(\d+)$/
     override_lumnis_interval = $1.to_i
   elsif var =~ /--?session-interval=(\d+)$/
     override_session_interval = $1.to_i

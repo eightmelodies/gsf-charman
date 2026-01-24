@@ -1,0 +1,44 @@
+def in_nexus?
+    [66666, 2300, 318].include? Room.current.id
+end
+
+def scripts_finished?
+    scripts_running = ["ewaggle", "eloot", "ecure", "eherbs", "lumnismon", "invdb"].map do |s|
+      Script.running?(s)
+    end
+    return false if scripts_running.any?
+
+    return false if Script.running?("ebounty") && Script.running?("bigshot")
+    return false if Script.running?("bigshot") && $bigshot_status != :resting
+    return false if Script.running?("ebounty") && $bigshot_status != :resting
+
+    # at this point we're either running bigshot itself, or ebounty and bigshot has ended, or neither
+    return true
+end
+
+def wait_room?
+    10.times do
+        return false unless in_nexus?
+        sleep 1
+    end
+    return true
+end
+
+def wind_down
+    # stop nudge/nudge_buff when we're in the nexus
+    # don't want to worry about ewaggle running from it
+    return unless in_nexus? && Script.running?("nudge_buff") && Script.running?("nudge")
+    wait_while { Script.running?("ewaggle") }
+    stop_script("nudge_buff")
+    stop_script("nudge")
+end
+
+def ready_to_quit?
+    return scripts_finished? && wait_room?
+end
+
+loop do
+    wind_down()
+    fput "quit" if ready_to_quit?
+    sleep 1
+end

@@ -63,7 +63,13 @@ class AsyncLoginOrchestrator:
         if rcode is None:
             print(f"lich process still running with pid {pid}")
         else:
+            try:
+                self.characters.delete_logout_request(self.process.character)
+            except Exception as e:
+                print(f"ERROR: could not delete pending logout request for {self.process.character}: {e}")
+
             self.process = None
+
             try:
                 output, _ = p_open.communicate(timeout=10)
                 print(f"lich process with pid {pid} completed with rcode {rcode}: {output}")
@@ -86,8 +92,7 @@ class AsyncLoginOrchestrator:
             *self._get_game_code_argument(character),
             f"--detachable-client=0.0.0.0:{self.port}",
             "--without-frontend",
-            "--start-scripts",
-            "charman",
+            "--start-scripts=charman",
         ]
         print(f"spawning lich process with cmd: {shlex.join(cmd)}")
         p_open = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -136,26 +141,35 @@ class AsyncLoginOrchestrator:
 
         return self.characters.get_character(self.process.character) if self.process else None
 
-    async def orchestrate(self):
-        current_character = self.get_character_currently_logged_in()
-        target_character = self.get_character_selected_for_login()
-        print(f"current character is {current_character} and target character is {target_character}")
-
-        if current_character and (current_character.name != target_character.name) and self.process:
+    def send_logout_request_if_needed(self, current_character: CharacterData, target_character: CharacterData):
+        if (
+            (current_character.name != target_character.name)
+            and self.process
+            and not self.process.when_logoff_requested
+        ):
             self.process.when_logoff_requested = datetime.now(UTC)
             self.characters.put_logout_request(current_character)
             print(f"sending logout request for {current_character.name}")
+        elif self.process and self.process.when_logoff_requested:
+            request_duration = datetime.now(UTC) - self.process.when_logoff_requested
+            print(f"pending logout request for {current_character.name} active for {request_duration}")
+
+    async def orchestrate(self):
+        current_character = self.get_character_currently_logged_in()
+        target_character = self.get_character_selected_for_login()
+
+        if current_character:
+            self.send_logout_request_if_needed(current_character, target_character)
 
         self._check_process()
         if self.process:
             print(f"currently running lich: {self.process}")
-            if current_character and current_character.pending_logout_request and self.process.when_logoff_requested:
-                request_duration = (
-                    self.process.when_logoff_requested - current_character.pending_logout_request.when_requested
-                )
-                print(f"pending logout request for {current_character.name} active for {request_duration}")
             return
 
+        current_character = self.get_character_currently_logged_in()
+        print(
+            f"current character is {current_character.name if current_character else None} and target character is {target_character.name}"
+        )
         print(f"starting lich process for {target_character.name}")
         self.start_lich(target_character)
 

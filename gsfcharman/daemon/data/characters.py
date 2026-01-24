@@ -3,7 +3,7 @@ from typing import Optional
 
 import httpx
 
-from gsfcharman.api.data import CharacterData, PendingLogoutRequest
+from gsfcharman.api.data import CharacterData, PendingLogoutRequest, SessionData
 from gsfcharman.daemon.data.entries import AccountEntry, Entries
 
 
@@ -78,5 +78,18 @@ class Characters:
             ).model_dump(mode="json"),
         )
 
-    def delete_logout_request(self, character: CharacterData):
-        self.client.delete(f"/characters/{character.name}/pending-logout-request")
+    def set_logged_out(self, character: str):
+        # TODO: I think we can just drop the is_logged_in field..
+        char_data = CharacterData(**self.client.get(f"/characters/{character}").json())
+        if char_data.session and char_data.session.is_logged_in:
+            self.client.put(
+                f"characters/{character}/session",
+                json=SessionData(
+                    is_logged_in=False,
+                    last_update=char_data.session.last_update,
+                    last_logon=char_data.session.last_logon,
+                ).model_dump(mode="json"),
+            )
+
+    def delete_logout_request(self, character: str):
+        self.client.delete(f"/characters/{character}/pending-logout-request")
