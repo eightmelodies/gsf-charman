@@ -120,7 +120,9 @@ You currently are enlightened, earning +50% base experience until 1/26/2026 at 1
 
 # TODO
 - Need a watchdog task for the API that cleans up login session data (ie., when the charman.lic script doesn't gracefully exit and set is_logged_in to false). If the (last_update + configurable timeout) < now and the state still shows as logged in, we should update to logged out. I wonder if we just have the daemon set this field since it is a more definitive source of truth. Then on daemon startup we can update any stale data that would have been a result of improper daemon shutdown. One downside to this would be the field would reflect only that the process is running, and not that we're precisely logged in and able to update the API from lich. Maybe two separate fields? Also would need to do this for logout requests
+- charman.lic should also handle some character watchdog-type stuff. I can already think of one edge case where if you were to just add ebounty to your autostart scripts then on daily login you'd probably go off and hunt once. Not too big of a deal but it's still unnecessary/undesireable. On startup, charman should try to normalize character state. So if we're dead, depart and get rid of death sting. Then try to make it to the nexus. Finally, once we're in the nexus we can start some chores (buy donations, eloot). After this completes and maybe a fixed time after login (~2m) we can see if we've got a logout request. If we do, then logout. If not, start ebounty.
 
+# thinking...
 alright, after getting the orchestration working I think it's still a little murky. there's a few situations where we can invalidate the data in the api:
 - lich dies without executing the charman quit hook that sets is_logged_on to false
 - daemon dies and doesn't clean up logout requests
