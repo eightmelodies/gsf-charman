@@ -18,7 +18,22 @@ from gsfcharman.daemon.strategies.weekly_lumnis import WeeklyLumnis
 from gsfcharman.daemon.strategies.weekly_resource import WeeklyResource
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+
+
+class ContextualFormatter(logging.Formatter):
+    def format(self, record):
+        if not hasattr(record, "account"):
+            record.account = "unknown"
+        if not hasattr(record, "character"):
+            record.character = "N/A"
+        return super().format(record)
+
+
+formatter = ContextualFormatter("[%(account)s %(character)s] %(levelname)s: %(message)s")
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(formatter)
+logging.getLogger().addHandler(handler)
+logging.getLogger().setLevel(logging.INFO)
 
 PORTS = ["9000", "9001", "9002", "9003", "9004", "9005", "9006", "9007", "9008", "9009"]
 
@@ -85,7 +100,7 @@ class CharmanDaemon:
                 results = await asyncio.gather(*tasks, return_exceptions=True)
                 for account, result in zip(self.login_orchestrators.keys(), results):
                     if isinstance(result, Exception):
-                        logger.error(f"Account {account}: Error - {result}")
+                        logger.error(f"Error during daemon cycle: {result}", extra={"account": account})
 
                 cycle_time = time.time() - start_time
                 logger.debug(f"--- Daemon cycle completed in {cycle_time:.2f} seconds ---")

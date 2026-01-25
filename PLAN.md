@@ -115,7 +115,8 @@ This is a very simple FastAPI server that stores and processes information the d
 - There's some tuning to do cuz the app is pretty liberal with API calls. Should probably at least add some @ttl_cache decorators to the daemon's Character module. This isn't super important since the API is a sidecar.
 - I wonder what kind of minor gains I would get if I wrote a strategy that prioritized logins by when your mind was empty. So every character in an account hunts til fried, logs out, and when they are drained they log back in again.
 - Reading entries.yaml is nice for my use cases, but I can see others (who maybe also play prime or have characters they don't want to partcipate) wanting to specify which characters to manage.
-- Another edge case to think about: exp scrolls. Probably want a strategy that prioritizes characters that have this time-based bonus active.
+- Another edge case to think about: exp scrolls. Probably want a strategy that prioritizes characters that have this time-based bonus active. (
+You currently are enlightened, earning +50% base experience until 1/26/2026 at 12:47 elven time standard.)
 
 # TODO
 - print statements -> proper logging
