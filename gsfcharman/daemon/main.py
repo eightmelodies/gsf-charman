@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import os
+import signal
 import sys
 import time
 
@@ -91,8 +92,22 @@ class CharmanDaemon:
         """Main daemon loop using async/await for concurrent account processing."""
         logger.info("Charman Daemon started. Press Ctrl+C to exit.")
 
+        loop = asyncio.get_running_loop()
+        stop_event = asyncio.Event()
+
+        def _handle_signal(sig):
+            logger.info(f"Received signal {sig}, initiating shutdown...")
+            stop_event.set()
+
         try:
-            while True:
+            for sig in (signal.SIGTERM, signal.SIGINT):
+                loop.add_signal_handler(sig, lambda s=sig: _handle_signal(s))
+        except NotImplementedError:
+            # Windows does not support add_signal_handler
+            pass
+
+        try:
+            while not stop_event.is_set():
                 start_time = time.time()
                 logger.debug(f"--- Daemon cycle started at {time.strftime('%H:%M:%S')} ---")
 
@@ -104,9 +119,16 @@ class CharmanDaemon:
 
                 cycle_time = time.time() - start_time
                 logger.debug(f"--- Daemon cycle completed in {cycle_time:.2f} seconds ---")
-                await asyncio.sleep(30)
+
+                try:
+                    await asyncio.wait_for(stop_event.wait(), timeout=30)
+                except asyncio.TimeoutError:
+                    pass  # Timeout reached, continue loop
 
         except KeyboardInterrupt:
+            # Fallback for Windows or if signal handling fails
+            logger.info("KeyboardInterrupt received...")
+        finally:
             logger.info("Shutting down daemon...")
             await self._cleanup()
             logger.info("Daemon stopped.")

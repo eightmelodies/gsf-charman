@@ -119,8 +119,6 @@ This is a very simple FastAPI server that stores and processes information the d
 You currently are enlightened, earning +50% base experience until 1/26/2026 at 12:47 elven time standard.)
 
 # TODO
-- print statements -> proper logging
-- daemon responds to sigterm for proper cleanup
 - Need a watchdog task for the API that cleans up login session data (ie., when the charman.lic script doesn't gracefully exit and set is_logged_in to false). If the (last_update + configurable timeout) < now and the state still shows as logged in, we should update to logged out. I wonder if we just have the daemon set this field since it is a more definitive source of truth. Then on daemon startup we can update any stale data that would have been a result of improper daemon shutdown. One downside to this would be the field would reflect only that the process is running, and not that we're precisely logged in and able to update the API from lich. Maybe two separate fields? Also would need to do this for logout requests
 
 alright, after getting the orchestration working I think it's still a little murky. there's a few situations where we can invalidate the data in the api:
