@@ -207,7 +207,7 @@ class TestDatabase:
         db.lastSaved = {"testcharacter": current_time}
 
         # Mock file operations to check if save was called
-        with patch("builtins.open", mock_open()) as mock_file:
+        with patch("builtins.open", mock_open()):
             with patch("json.dump") as mock_json_dump:
                 db.save()
 

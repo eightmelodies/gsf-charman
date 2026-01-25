@@ -204,10 +204,6 @@ def character_no_heartbeat() -> CharacterData:
 def character_at_reset_time() -> CharacterData:
     """Character with activity exactly at reset time."""
     # Calculate the reset time for the test week start date
-    from gsfcharman.daemon.strategies.daily_login import DailyLogin
-
-    strategy = DailyLogin()
-    reset_time = strategy._get_when_login_reset()
 
     # Use a fixed time that would be at reset for testing
     # Since we can't easily control the current time, we'll use a mock approach

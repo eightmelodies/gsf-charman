@@ -1,7 +1,9 @@
 """Charman Daemon - Manages Gemstone character sessions with async multi-account support."""
 
 import asyncio
+import logging
 import os
+import sys
 import time
 
 import httpx
@@ -14,6 +16,9 @@ from gsfcharman.daemon.strategies.daily_login import DailyLogin
 from gsfcharman.daemon.strategies.favored_character import FavoredCharacter
 from gsfcharman.daemon.strategies.weekly_lumnis import WeeklyLumnis
 from gsfcharman.daemon.strategies.weekly_resource import WeeklyResource
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 PORTS = ["9000", "9001", "9002", "9003", "9004", "9005", "9006", "9007", "9008", "9009"]
 
@@ -42,16 +47,16 @@ class CharmanDaemon:
                 try:
                     self.characters.delete_logout_request(character.name)
                 except Exception as e:
-                    print(f"ERROR: could not init logout request data for {character.name}: {e}")
+                    logger.error(f"could not init logout request data for {character.name}: {e}")
 
                 try:
                     self.characters.set_logged_out(character.name)
                 except Exception as e:
-                    print(f"ERROR: could not init is_logged_out data for {character.name}: {e}")
+                    logger.error(f"could not init is_logged_out data for {character.name}: {e}")
 
     def _create_login_orchestrators(self) -> dict[str, AsyncLoginOrchestrator]:
         port_mappings = dict(zip([a.name for a in self.entries.accounts], PORTS))
-        print(f"assigning account:port mappings as follows: {port_mappings}")
+        logger.info(f"assigning account:port mappings as follows: {port_mappings}")
         return {
             a.name: AsyncLoginOrchestrator(
                 [
@@ -69,51 +74,38 @@ class CharmanDaemon:
 
     async def run(self):
         """Main daemon loop using async/await for concurrent account processing."""
-        print("Charman Daemon started. Press Ctrl+C to exit.")
+        logger.info("Charman Daemon started. Press Ctrl+C to exit.")
 
         try:
             while True:
                 start_time = time.time()
+                logger.debug(f"--- Daemon cycle started at {time.strftime('%H:%M:%S')} ---")
 
-                print(f"\n--- Daemon cycle started at {time.strftime('%H:%M:%S')} ---")
-
-                # Run all account orchestrators concurrently
                 tasks = [orchestrator.orchestrate() for orchestrator in self.login_orchestrators.values()]
-
-                # Execute all tasks concurrently with error handling
                 results = await asyncio.gather(*tasks, return_exceptions=True)
-
-                # Report results
                 for account, result in zip(self.login_orchestrators.keys(), results):
                     if isinstance(result, Exception):
-                        print(f"Account {account}: Error - {result}")
-                    elif result:
-                        print(f"Account {account}: Login action performed")
-                    else:
-                        print(f"Account {account}: No action needed")
+                        logger.error(f"Account {account}: Error - {result}")
 
-                # Calculate and report cycle time
                 cycle_time = time.time() - start_time
-                print(f"--- Daemon cycle completed in {cycle_time:.2f} seconds ---")
-
-                # Wait for next cycle
+                logger.debug(f"--- Daemon cycle completed in {cycle_time:.2f} seconds ---")
                 await asyncio.sleep(30)
 
         except KeyboardInterrupt:
-            print("\nShutting down daemon...")
+            logger.info("Shutting down daemon...")
             await self._cleanup()
-            print("Daemon stopped.")
+            logger.info("Daemon stopped.")
 
     async def _cleanup(self):
         """Clean up all account orchestrators and the httpx client."""
-        print("Cleaning up account orchestrators...")
+        logger.info("Cleaning up account orchestrators...")
 
         # Clean up all orchestrators concurrently
         cleanup_tasks = [orchestrator.close() for orchestrator in self.login_orchestrators.values()]
 
         await asyncio.gather(*cleanup_tasks, return_exceptions=True)
 
-        print("All account orchestrators and httpx client cleaned up.")
+        logger.info("All account orchestrators cleaned up.")
 
 
 def main():

@@ -1,7 +1,10 @@
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -66,4 +69,4 @@ class Entries:
                     ],
                 )
             )
-        print(f"Successfully loaded {len(self.accounts)} accounts")
+        logger.info(f"Successfully loaded {len(self.accounts)} accounts")

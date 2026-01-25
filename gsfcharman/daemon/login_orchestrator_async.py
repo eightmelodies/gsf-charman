@@ -1,5 +1,6 @@
 """Async Login Orchestrator - Manages character login/logout decisions using strategies with async support."""
 
+import logging
 import os
 import shlex
 import subprocess
@@ -10,6 +11,8 @@ from typing import Optional
 from gsfcharman.api.data import CharacterData
 from gsfcharman.daemon.data.characters import Characters, MultipleCharactersLoggedIn
 from gsfcharman.daemon.strategies.base import LoginStrategy
+
+logger = logging.getLogger(__name__)
 
 GAME_CODE_MAPPINGS = {"GS3": ["--gemstone"], "GST": ["--gemstone", "--test"], "GSF": ["--shattered"]}
 
@@ -61,23 +64,23 @@ class AsyncLoginOrchestrator:
         rcode = p_open.poll()
         pid = p_open.pid
         if rcode is None:
-            print(f"lich process still running with pid {pid}")
+            logger.debug(f"lich process still running with pid {pid}")
         else:
             try:
                 self.characters.delete_logout_request(self.process.character)
             except Exception as e:
-                print(f"ERROR: could not delete pending logout request for {self.process.character}: {e}")
+                logger.error(f"could not delete pending logout request for {self.process.character}: {e}")
 
             self.process = None
 
             try:
                 output, _ = p_open.communicate(timeout=10)
-                print(f"lich process with pid {pid} completed with rcode {rcode}: {output}")
+                logger.info(f"lich process with pid {pid} completed with rcode {rcode}: {output}")
             except subprocess.TimeoutExpired:
-                print(f"lich process with pid {pid} timed out and is getting killed")
+                logger.warning(f"lich process with pid {pid} timed out and is getting killed")
                 p_open.kill()
                 output, _ = p_open.communicate()
-                print(f"lich process with pid {pid} killed with rcode {rcode}: {output}")
+                logger.warning(f"lich process with pid {pid} killed with rcode {rcode}: {output}")
 
     def start_lich(self, character: CharacterData):
         """Start a Lich process for a character."""
@@ -94,7 +97,7 @@ class AsyncLoginOrchestrator:
             "--without-frontend",
             "--start-scripts=charman",
         ]
-        print(f"spawning lich process with cmd: {shlex.join(cmd)}")
+        logger.info(f"spawning lich process with cmd: {shlex.join(cmd)}")
         p_open = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         self.process = ProcessInfo(when_started=datetime.now(UTC), p_open=p_open, character=character.name)
 
@@ -103,7 +106,7 @@ class AsyncLoginOrchestrator:
         if not self.process:
             raise RuntimeError("cannot stop lich: process does not exist")
 
-        print(f"Account {self.account}: Stopping Lich process for {self.process.character}...")
+        logger.info(f"Account {self.account}: Stopping Lich process for {self.process.character}...")
         p_open = self.process.p_open
         self.process = None
         p_open.terminate()
@@ -114,12 +117,12 @@ class AsyncLoginOrchestrator:
 
     def get_character_selected_for_login(self) -> CharacterData:
         characters = self.characters.get_characters_for_account(self.account)
-        print(f"evaluating strategies for account {self.account} and characters {characters}")
+        logger.debug(f"evaluating strategies for account {self.account} and characters {characters}")
         for strategy in self.strategies:
             selected_characters = strategy.select(characters)
-            print(f"  {strategy.__class__.__name__} selected {[c.name for c in selected_characters]}")
+            logger.info(f"{strategy.__class__.__name__} selected {[c.name for c in selected_characters]}")
             if selected_characters:
-                print(f"  selected {selected_characters[0].name}")
+                logger.info(f"selected {selected_characters[0].name}")
                 return selected_characters[0]
 
         raise RuntimeError("No characters selected by any strategy")
@@ -128,16 +131,18 @@ class AsyncLoginOrchestrator:
         try:
             api_character = [self.characters.get_character_logged_in_for_account(self.account)]
         except MultipleCharactersLoggedIn as e:
-            print(f"warn: {e}")
+            logger.warning(f"{e}")
             # TODO: We need to eventually reconcile the API with what the process running currently is
             # For now, warn about any abnormalities and just use what reflects our process
             # We might even just switch to having the daemon update the logged_in field instead of the lich script
             # with the downside being we lose "logged in" from the perspective that lich is running with our script
             if self.process and self.process.character not in e.characters:
-                print(f"warn: lich process open for {self.process.character}, but API shows {e.characters} logged in")
+                logger.warning(
+                    f"lich process open for {self.process.character}, but API shows {e.characters} logged in"
+                )
         else:
             if not api_character and self.process:
-                print(f"warn: API shows no logins but we have a running process for {self.process.character}")
+                logger.warning(f"API shows no logins but we have a running process for {self.process.character}")
 
         return self.characters.get_character(self.process.character) if self.process else None
 
@@ -149,10 +154,10 @@ class AsyncLoginOrchestrator:
         ):
             self.process.when_logoff_requested = datetime.now(UTC)
             self.characters.put_logout_request(current_character)
-            print(f"sending logout request for {current_character.name}")
+            logger.info(f"sending logout request for {current_character.name}")
         elif self.process and self.process.when_logoff_requested:
             request_duration = datetime.now(UTC) - self.process.when_logoff_requested
-            print(f"pending logout request for {current_character.name} active for {request_duration}")
+            logger.info(f"pending logout request for {current_character.name} active for {request_duration}")
 
     async def orchestrate(self):
         current_character = self.get_character_currently_logged_in()
@@ -163,14 +168,14 @@ class AsyncLoginOrchestrator:
 
         self._check_process()
         if self.process:
-            print(f"currently running lich: {self.process}")
+            logger.info(f"currently running lich: {self.process}")
             return
 
         current_character = self.get_character_currently_logged_in()
-        print(
+        logger.info(
             f"current character is {current_character.name if current_character else None} and target character is {target_character.name}"
         )
-        print(f"starting lich process for {target_character.name}")
+        logger.info(f"starting lich process for {target_character.name}")
         self.start_lich(target_character)
 
     async def close(self):
