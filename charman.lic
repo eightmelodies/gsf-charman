@@ -280,7 +280,7 @@ module CharmanState
     sleep(10) until Char.percent_spirit == 100
   end
 
-  def init
+  def self.init
     self.wait_startup
     self.init_if_dead
     self.init_if_sting
