@@ -1,5 +1,5 @@
 def in_nexus?
-    [66666, 2300, 318].include? Room.current.id
+    [66666, 2300, 318, 1438].include? Room.current.id
 end
 
 def scripts_finished?

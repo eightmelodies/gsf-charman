@@ -24,6 +24,23 @@ services:
           path: ./gsfcharman/requirements.txt
         - action: rebuild
           path: ./gsfcharman/api/Dockerfile
+
+  xvfb:
+    image: alpine
+    #restart: unless-stopped
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    environment:
+      - DISPLAY=:99
+    init: true
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM alpine:latest
+        RUN apk add --no-cache xvfb
+        ENTRYPOINT [ "Xvfb" ]
+        CMD [ ":99", "-screen", "0", "1920x1200x16" ]
+
   daemon:
     build:
       context: ./gsfcharman/
@@ -45,11 +62,16 @@ services:
       - type: bind
         source: ${LICH_PATH:-../lich}/temp
         target: ${CONTAINER_LICH_PATH:-/opt/Lich5}/temp
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    environment:
+      - DISPLAY=:99
     #restart: unless-stopped
     depends_on:
       api:
         condition: service_healthy
         restart: true
+      xvfb:
+        condition: service_started
     develop:
       watch:
         - action: sync+restart
