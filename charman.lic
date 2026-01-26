@@ -232,8 +232,54 @@ module LogoutHandler
     start_script("charmanlogout")
     @started_logout = true
   end
+end
 
+# TODO: this goes into charmanlogon.lic and we spawn that so people can define their own behavior?
+module CharmanState
+  def self.wait_startup
+    wait_while { Script.running?("invdb") }
+    wait_while { Script.running?("lumnismon") }
+    sleep(3)
+  end
 
+  def self.init_if_dead
+    return unless dead?
+
+    2.times { fput "depart" };
+    2.times { fput "depart confirm" };
+  end
+
+  def self.init_if_sting
+    return unless Experience.deaths_sting != "None"
+
+    Script.run("sting")
+  end
+
+  def self.init_if_not_in_town
+    Script.run("go2", "town --disable-confirm")
+  end
+
+  def self.init_if_spirit_low
+    return if Char.percent_spirit == 100
+
+    if Spell[9824].known?
+      pause_script("nudge", "nudge_buff", "ewaggle")
+      Spell[9824].cast
+      sleep(1) until !Spell[9824].active?
+      unpause_script("nudge", "nudge_buff", "ewaggle")
+    end
+
+    sleep(10) until Char.percent_spirit == 100
+  end
+
+  def init
+    self.wait_startup
+    self.init_if_dead
+    self.init_if_sting
+    self.init_if_not_in_town
+    self.init_if_spirit_low
+    #self.init_no_donations
+  end
 end
 
 module Charman
