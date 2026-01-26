@@ -232,8 +232,63 @@ module LogoutHandler
     start_script("charmanlogout")
     @started_logout = true
   end
+end
 
+# TODO: this goes into charmanlogon.lic and we spawn that so people can define their own behavior?
+module CharmanState
+  def self.wait_startup
+    Lich::Messaging.msg("info", "Waiting for startup scripts to finish...")
+    wait_while { Script.running?("invdb") }
+    wait_while { Script.running?("lumnismon") }
+    wait_while { Script.running?("eloot") }
+    sleep(3)
+  end
 
+  def self.init_if_dead
+    return unless dead?
+
+    Lich::Messaging.msg("info", "We're dead, departing!")
+    2.times { fput "depart" };
+    2.times { fput "depart confirm" };
+  end
+
+  def self.init_if_sting
+    return unless Experience.deaths_sting != "None"
+
+    Lich::Messaging.msg("info", "We have death's sting, running sting.lic")
+    Script.run("sting")
+  end
+
+  def self.init_if_not_in_town
+    # TODO: this can be improved. shouldn't matter if we logoff in the nexus like normal
+    return unless [66666, 2300, 318].include? Room.current.id
+    Lich::Messaging.msg("info", "Not in town, running back to town")
+    Script.run("go2", "town --disable-confirm")
+  end
+
+  def self.init_if_spirit_low
+    return if Char.percent_spirit == 100
+
+    Lich::Messaging.msg("info", "Waiting for spirit to recover...")
+    if Spell[9824].known?
+      pause_script("nudge", "nudge_buff", "ewaggle")
+      Spell[9824].cast
+      sleep(1) until !Spell[9824].active?
+      unpause_script("nudge", "nudge_buff", "ewaggle")
+    end
+
+    sleep(10) until Char.percent_spirit == 100
+  end
+
+  def init
+    self.wait_startup
+    self.init_if_dead
+    self.init_if_sting
+    self.init_if_not_in_town
+    self.init_if_spirit_low
+    # TODO
+    #self.init_no_donations
+  end
 end
 
 module Charman
@@ -397,6 +452,9 @@ if daemon_mode
     Lich::Messaging.msg("info", "Updating login state")
     CharmanAPI.update_session(XMLData.name, false)
   }
+
+  Lich::Messaging.msg("info", "Initializing character state...")
+  CharmanState.init
 
   Lich::Messaging.msg("info", "Starting daemon mode. Use ;k charman to stop.")
   
