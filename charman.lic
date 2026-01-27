@@ -38,8 +38,8 @@ module Lumnis
     # or determine if a character is capable of generating resources by looking at profession/spell/etc data and building the end line from that
     # One thing I've noticed so far is that the voln-favor script will call this same command and if it happens at the same time ours will bleed through
     # Might be worth just seeing how fresh this data is without us calling the command each time
-    end_line = Resources.weekly.nil? ? /Voln Favor:/ : /Suffused/
-    Lich::Util.issue_command("resource", /^Health:/, end_line, silent: true, quiet: true)
+    return if Resources.weekly.nil?
+    Lich::Util.issue_command("resource", /^Health:/, /Suffused:/, silent: true, quiet: true)
   end
 
   def self.update_lumnis(result)
