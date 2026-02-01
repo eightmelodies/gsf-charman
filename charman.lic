@@ -248,12 +248,14 @@ module CharmanState
     return unless dead?
 
     Lich::Messaging.msg("info", "We're dead, departing!")
+    # TODO: voln symbol thingy for spells
     2.times { fput "depart" };
     2.times { fput "depart confirm" };
+    sleep(3)
   end
 
   def self.init_if_sting
-    return unless Experience.deaths_sting != "None"
+    return if Experience.deaths_sting == "None"
 
     Lich::Messaging.msg("info", "We have death's sting, running sting.lic")
     Script.run("sting")
@@ -261,7 +263,7 @@ module CharmanState
 
   def self.init_if_not_in_town
     # TODO: this can be improved. shouldn't matter if we logoff in the nexus like normal
-    return unless [66666, 2300, 318, 1438].include? Room.current.id
+    return if [66666, 2300, 318, 1438].include? Room.current.id
     Lich::Messaging.msg("info", "Not in town, running back to town")
     Script.run("go2", "town --disable-confirm")
   end
@@ -280,19 +282,34 @@ module CharmanState
     sleep(10) until Char.percent_spirit == 100
   end
 
+  def self.init_if_no_donations
+    Lumnis.check
+    return if Lumnis.donations > 0
+    Lich::Messaging.msg("info", "Making Lumnis donation...")
+    Script.run("go2", "bank --disable-confirm")
+    fput "withdraw 250000"
+    fput "lumnis donate confirm"
+    fput "deposit all"
+    Script.run("go2", "goback --disable-confirm")
+  end
+
   def self.init_startup_scripts
     Lich::Messaging.msg("info", "Running startup scripts...")
-    start_script("ebounty")
+    if Script.exists?("charmanstartup")
+      Lich::Messaging.msg("info", "Custom charmanstartup.lic found, starting script...")
+      start_script("charmanstartup")
+    else
+      start_script("ebounty")
+    end
   end
 
   def self.init
     self.wait_startup
     self.init_if_dead
-    self.init_if_sting
     self.init_if_not_in_town
+    self.init_if_sting
     self.init_if_spirit_low
-    # TODO
-    #self.init_no_donations
+    self.init_if_no_donations
 
     self.init_startup_scripts
   end
