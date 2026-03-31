@@ -238,7 +238,8 @@ end
 module CharmanState
   def self.wait_startup
     Lich::Messaging.msg("info", "Waiting for startup scripts to finish...")
-    sleep(10)
+    sleep(5)
+    # TODO: these sometimes don't seem to stop (happened with lumnismon), should time out after a bit
     wait_while { Script.running?("invdb") }
     wait_while { Script.running?("lumnismon") }
     wait_while { Script.running?("eloot") }
@@ -247,14 +248,19 @@ module CharmanState
   def self.init_if_dead
     return unless dead?
 
-    Lich::Messaging.msg("info", "We're dead, departing!")
-    # TODO: voln symbol thingy for spells
+    Lich::Messaging.msg("info", "We're dead...")
+
+    Lich::Messaging.msg("info", "Decaying!")
+    2.times { fput "unlink" };
+    2.times { fput "unlink confirm" };
     2.times { fput "depart" };
     2.times { fput "depart confirm" };
     sleep(3)
   end
 
   def self.init_if_sting
+    fput "exp"
+    sleep 0.5 # TODO: can sleep while to make this more accurate, eg., sleep 0.1 while sting == None, but this does just seem to work?
     return if Experience.deaths_sting == "None"
 
     Lich::Messaging.msg("info", "We have death's sting, running sting.lic")
@@ -265,7 +271,7 @@ module CharmanState
     # TODO: this can be improved. shouldn't matter if we logoff in the nexus like normal
     return if [66666, 2300, 318, 1438].include? Room.current.id
     Lich::Messaging.msg("info", "Not in town, running back to town")
-    Script.run("go2", "town --disable-confirm")
+    Script.run("go2", "nexus --disable-confirm")
   end
 
   def self.init_if_spirit_low
@@ -275,11 +281,19 @@ module CharmanState
     if Spell[9824].known?
       pause_script("nudge", "nudge_buff", "ewaggle")
       Spell[9824].cast
-      sleep(1) until !Spell[9824].active?
+      fput "info"; sleep(30) until Spell[9824].timeleft <= 50 # Dreams last like an hour but about 10m gets us recovered
+      Spell[9824].putdown
       unpause_script("nudge", "nudge_buff", "ewaggle")
     end
 
-    sleep(10) until Char.percent_spirit == 100
+    fput "info"; sleep(30) until Char.percent_spirit == 100
+    # TODO: when recovering from death this will be 100 percent but our stats diminished (and spirit lower than normal)
+    #       it's ok cuz ebounty waits for the bigshot spirit amount but we probably wanna be more accurate
+    # UP>;e echo Stats.strength
+    # [exec1: #<OpenStruct value=72, bonus=21, base=#<OpenStruct value=100, bonus=35>, enhanced=#<OpenStruct value=69, bonus=19>>]
+    # can compare enhanced to normal value (72 != 69)
+    # or we can wait for:  You feel the sting of a recent death slowly fade away.
+    # Also need to capture if Your sleep is interrupted. happens
   end
 
   def self.init_if_no_donations
@@ -287,7 +301,8 @@ module CharmanState
     return if Lumnis.donations > 0
     Lich::Messaging.msg("info", "Making Lumnis donation...")
     Script.run("go2", "bank --disable-confirm")
-    fput "withdraw 250000"
+    # TODO: should calc for poor lowbies
+    fput "withdraw 250000 silver" # TODO: hands full for notes but also encum for silver
     fput "lumnis donate confirm"
     fput "deposit all"
     Script.run("go2", "goback --disable-confirm")
@@ -304,13 +319,17 @@ module CharmanState
   end
 
   def self.init
-    self.wait_startup
     self.init_if_dead
     self.init_if_not_in_town
     self.init_if_sting
     self.init_if_spirit_low
     self.init_if_no_donations
+    self.wait_startup
+    # TODO: suffuse if we're capped on resource
+    # TODO: mana spellup or ewaggle for a base coat of spells before running hunting stuff
+  end
 
+  def self.startup
     self.init_startup_scripts
   end
 end
@@ -376,6 +395,7 @@ if Script.current.vars[0] =~ /^--?help$|\?$/
   _respond "Usage:"
   _respond "  ;charman                            - Run continuously"
   _respond "  ;charman run                        - Run once (fetch and send all data)"
+  _respond "  ;charman init                       - Initialize character state (recover from death, run startup scripts, etc.)"
   _respond "  ;charman set --url=URL              - Set API URL"
   _respond "  ;charman set --lumnis-interval=N    - Set Lumnis update interval (in seconds, default: 60)"
   _respond "  ;charman set --session-interval=N   - Set session update interval (in seconds, default: 30)"
@@ -383,7 +403,7 @@ if Script.current.vars[0] =~ /^--?help$|\?$/
   _respond "  ;charman --help                     - Show this help"
   _respond ""
   _respond "Configuration:"
-  _respond "  Set UserVars.charman[:api_url] to your API endpoint (default: http://localhost:8000)"
+  _respond "  Set UserVars.charman[:api_url] to your API endpoint (default: http://api:8000)"
   _respond "  Set UserVars.charman[:lumnis_interval] to Lumnis update interval in seconds (default: 60)"
   _respond ""
   exit
@@ -403,7 +423,7 @@ in_args = false
 for var in all_args
   if var.nil? || var.empty?
     next
-  elsif !in_args && var =~ /^(set|run)$/
+  elsif !in_args && var =~ /^(set|run|init)$/
     command = var
     in_args = true
   elsif in_args
@@ -415,6 +435,12 @@ if command.nil?
   daemon_mode = true
   # Collect all args except the first (full command)
   args = all_args[1..-1].compact
+end
+
+if command == 'init'
+  Lich::Messaging.msg("info", "Initializing character state...")
+  CharmanState.init
+  exit
 end
 
 if command == 'run'
@@ -447,7 +473,7 @@ if command == 'set'
   unless url_set || lumnis_interval_set || session_interval_set
     _respond ""
     _respond "<pushBold/>Current Configuration:<popBold/>"
-    _respond "  API URL: #{UserVars.charman[:api_url] || 'http://localhost:8000'}"
+    _respond "  API URL: #{UserVars.charman[:api_url] || 'http://api:8000'}"
     _respond "  Lumnis Interval: #{UserVars.charman[:lumnis_interval] || 60} seconds"
     _respond "  Session Interval: #{UserVars.charman[:session_interval] || 30} seconds"
     _respond ""
@@ -479,6 +505,7 @@ if daemon_mode
 
   Lich::Messaging.msg("info", "Initializing character state...")
   CharmanState.init
+  CharmanState.startup
 
   Lich::Messaging.msg("info", "Starting daemon mode. Use ;k charman to stop.")
   
